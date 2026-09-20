@@ -1,0 +1,23 @@
+SYNTHETIC DATA - demonstrates method only
+
+cutoff: 2025-12-01
+open orders: 374
+open material: $414.8M
+
+next 12 months, material required ($M)
+     month  p10  p50  p90  spread
+2026-01-01 40.7 49.6 57.0    16.3
+2026-02-01 36.5 44.9 53.8    17.3
+2026-03-01 36.3 44.4 53.1    16.8
+2026-04-01 34.6 42.5 51.5    16.9
+2026-05-01 36.1 43.7 51.9    15.8
+2026-06-01 26.7 33.9 41.7    15.0
+2026-07-01 25.0 31.8 39.5    14.5
+2026-08-01 22.2 28.6 35.5    13.3
+2026-09-01 14.8 20.5 26.9    12.1
+2026-10-01 17.4 23.2 29.6    12.2
+2026-11-01  8.5 13.1 18.8    10.3
+2026-12-01  2.7  6.4 11.1     8.4
+
+sum of per-region P90 overstates portfolio P90 by 15.3%
+stated 80% interval realised coverage: 62%
