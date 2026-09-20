@@ -116,8 +116,8 @@ def main() -> None:
         ("Region vs Market", "Each market's P90 against its region's blended P90.", "formulas"),
         ("Lookback", "Expected against actual conversion by region and month, with cumulative bias.", "formulas"),
         ("Commitment", "Material committed against backlog at a range of realization assumptions.", "formulas"),
-        ("MC Forward", "Forward material requirement by month, firm and pipeline, with intervals.", "model output"),
-        ("MC Calibration", "Walk-forward coverage test and the conformal widening factor.", "model output"),
+        ("MC Forward", "Forward requirement by month. Simulated P10/P50/P90; calibrated bounds are formulas.", "mixed"),
+        ("MC Calibration", "Walk-forward coverage test. The conformal step is worked in full, as formulas.", "mixed"),
     ]
     header(ws, 7, ["Tab", "What is on it", "Type"], [22, 86, 15])
     for i, (a, b, c) in enumerate(rows):
@@ -133,10 +133,11 @@ def main() -> None:
     r = 8 + len(rows) + 2
     ws.cell(row=r, column=1, value="On the two model-output tabs").font = sec_font
     ws.cell(row=r + 1, column=1, value=(
-        "Excel can reproduce every aggregate in this workbook. It cannot reasonably run 4,000 "
-        "simulations across 895 orders, or the walk-forward conformal calibration behind them. "
-        "Those two tabs carry results from the Python model, and the scripts that produce them "
-        "are in the same repository."))
+        "Excel reproduces every aggregate in this workbook, including the conformal calibration, "
+        "which is worked in full on the calibration tab. The one thing it cannot reasonably do is "
+        "run 4,000 simulations across 895 orders, so the P10/P50/P90 columns on the two MC tabs "
+        "are simulated values. Everything derived from them is a formula. The scripts are in the "
+        "same repository."))
     ws.cell(row=r + 1, column=1).alignment = Alignment(wrap_text=True, vertical="top")
     ws.merge_cells(start_row=r + 1, start_column=1, end_row=r + 3, end_column=6)
     ws.cell(row=r + 5, column=1, value="Material rate used throughout").font = lab
@@ -374,64 +375,100 @@ def main() -> None:
     t = mc[(mc.scope == "TOTAL")].pivot_table(index="month", columns="layer",
                                               values="p50").reset_index()
     band = mc[(mc.scope == "TOTAL") & (mc.layer == "all")].sort_values("month")
+    # q80 lands on the calibration tab at a position fixed by its row count
+    q80_ref = f"'MC Calibration'!$C${len(cov) + 11}"
     header(ws, 4, ["month", "already booked ($)", "not yet booked ($)",
                    "expected total ($)", "low (P10)", "high (P90)",
-                   "calibrated low", "calibrated high", "firm share"],
-           [12, 18, 18, 17, 14, 14, 15, 15, 12])
+                   "spread", "calibrated low", "calibrated high", "firm share"],
+           [12, 18, 18, 17, 14, 14, 12, 15, 15, 12])
+    ws.cell(row=3, column=8, value=("= expected total -/+ q80 x spread, with q80 from "
+                                    "the calibration tab")).font = note_font
     for i in range(len(band)):
         r = 5 + i
         b = band.iloc[i]
         row_t = t[t.month == b.month].iloc[0]
         ws.cell(row=r, column=1, value=b.month.date()).number_format = "yyyy-mm"
         for j, v in enumerate([row_t.get("firm", 0), row_t.get("pipeline", 0),
-                               b.p50, b.p10, b.p90,
-                               b.get("cal80_lo", None), b.get("cal80_hi", None)]):
+                               b.p50, b.p10, b.p90]):
             c = ws.cell(row=r, column=2 + j,
                         value=None if v is None or pd.isna(v) else float(v))
             c.number_format = "#,##0"
-        ws.cell(row=r, column=9, value=f"=IF(D{r}=0,\"\",B{r}/D{r})").number_format = "0%"
-        for j in range(1, 10):
+        ws.cell(row=r, column=7, value=f"=F{r}-E{r}").number_format = "#,##0"
+        ws.cell(row=r, column=8,
+                value=f"=D{r}-{q80_ref}*G{r}").number_format = "#,##0"
+        ws.cell(row=r, column=9,
+                value=f"=D{r}+{q80_ref}*G{r}").number_format = "#,##0"
+        ws.cell(row=r, column=10, value=f"=IF(D{r}=0,\"\",B{r}/D{r})").number_format = "0%"
+        for j in range(1, 11):
             ws.cell(row=r, column=j).border = box
+    nb = 4 + len(band)
+    ws.cell(row=nb + 2, column=1, value=(
+        "Already booked and not yet booked are medians of two separate simulations, so they do "
+        "not sum exactly to the expected total, which is the median of the combined draw. "
+        "Medians are not additive.")).font = note_font
+    ws.merge_cells(start_row=nb + 2, start_column=1, end_row=nb + 3, end_column=8)
 
     ws = sheet(wb, "MC Calibration")
-    title(ws, "Interval calibration (model output)",
+    title(ws, "Interval calibration",
           "Walk-forward test. At each historical cutoff the model forecasts forward using only "
-          "orders open at that time; the outcome is then compared against the stated interval.")
+          "orders open at that time; the outcome is then compared against the stated interval. "
+          "Only the P10/P50/P90 columns come from the model. Everything right of them is a formula.")
+    nc = len(cov)
+    lastr = 4 + nc
     header(ws, 4, ["cutoff", "month", "actual ($)", "P10", "P50", "P90",
-                   "inside raw 80%", "calibrated low", "calibrated high",
-                   "inside calibrated"],
-           [12, 12, 14, 13, 13, 13, 14, 15, 15, 16])
-    for i in range(len(cov)):
+                   "spread (P90-P10)", "score", "inside raw 80%",
+                   "calibrated low", "calibrated high", "inside calibrated"],
+           [12, 12, 14, 13, 13, 13, 16, 10, 14, 15, 15, 16])
+    ws.cell(row=3, column=8,
+            value="= |actual - P50| / spread, how many interval widths the miss was"
+            ).font = note_font
+    for i in range(nc):
         r = 5 + i
         c0 = cov.iloc[i]
         ws.cell(row=r, column=1, value=c0.cutoff.date()).number_format = "yyyy-mm"
         ws.cell(row=r, column=2, value=c0.month.date()).number_format = "yyyy-mm"
         for j, v in enumerate([c0.actual, c0.p10, c0.p50, c0.p90]):
             ws.cell(row=r, column=3 + j, value=float(v)).number_format = "#,##0"
-        ws.cell(row=r, column=7, value=f"=IF(AND(C{r}>=D{r},C{r}<=F{r}),1,0)")
+        ws.cell(row=r, column=7, value=f"=F{r}-D{r}").number_format = "#,##0"
         ws.cell(row=r, column=8,
-                value=None if pd.isna(c0.get("cal80_lo")) else float(c0.cal80_lo)
-                ).number_format = "#,##0"
-        ws.cell(row=r, column=9,
-                value=None if pd.isna(c0.get("cal80_hi")) else float(c0.cal80_hi)
-                ).number_format = "#,##0"
-        ws.cell(row=r, column=10, value=f"=IF(AND(C{r}>=H{r},C{r}<=I{r}),1,0)")
-        for j in range(1, 11):
+                value=f"=IF(G{r}=0,\"\",ABS(C{r}-E{r})/G{r})").number_format = "0.000"
+        ws.cell(row=r, column=9, value=f"=IF(AND(C{r}>=D{r},C{r}<=F{r}),1,0)")
+        ws.cell(row=r, column=10, value=f"=E{r}-$C$Q*G{r}").number_format = "#,##0"
+        ws.cell(row=r, column=11, value=f"=E{r}+$C$Q*G{r}").number_format = "#,##0"
+        ws.cell(row=r, column=12, value=f"=IF(AND(C{r}>=J{r},C{r}<=K{r}),1,0)")
+        for j in range(1, 13):
             ws.cell(row=r, column=j).border = box
-    s = 5 + len(cov) + 1
-    ws.cell(row=s, column=2, value="stated").font = lab
-    ws.cell(row=s, column=3, value=0.80).number_format = "0%"
-    ws.cell(row=s + 1, column=2, value="raw coverage").font = lab
-    ws.cell(row=s + 1, column=3,
-            value=f"=AVERAGE(G5:G{4+len(cov)})").number_format = "0%"
-    ws.cell(row=s + 2, column=2, value="calibrated coverage").font = lab
-    ws.cell(row=s + 2, column=3,
-            value=f"=AVERAGE(J5:J{4+len(cov)})").number_format = "0%"
-    ws.cell(row=s + 3, column=2, value="widening factor").font = lab
-    ws.cell(row=s + 3, column=3,
-            value=(f"=SUMPRODUCT(I5:I{4+len(cov)}-H5:H{4+len(cov)})"
-                   f"/SUMPRODUCT(F5:F{4+len(cov)}-D5:D{4+len(cov)})")
-            ).number_format = "0.00"
+
+    s = lastr + 2
+    ws.cell(row=s, column=1, value="Conformal calibration").font = sec_font
+    ws.cell(row=s + 1, column=1, value=(
+        "Split conformal. Rank the scores, take the one at the 80th position by count, and use it "
+        "as the multiplier on the spread. No distributional assumption; it measures what the model "
+        "actually did against outcomes.")).font = note_font
+    ws.merge_cells(start_row=s + 1, start_column=1, end_row=s + 1, end_column=8)
+
+    rows_cal = [
+        ("observations (n)", f"=COUNT(H5:H{lastr})", "#,##0"),
+        ("rank used  = ROUNDUP((n+1) x 0.80, 0)",
+         f"=MIN(ROUNDUP((C{s+3}+1)*0.8,0),C{s+3})", "#,##0"),
+        ("q80  = that ranked score", f"=SMALL(H5:H{lastr},C{s+4})", "0.000"),
+        ("stated coverage", "=0.8", "0%"),
+        ("raw coverage", f"=AVERAGE(I5:I{lastr})", "0%"),
+        ("calibrated coverage", f"=AVERAGE(L5:L{lastr})", "0%"),
+        ("widening factor  = 2 x q80", f"=2*C{s+5}", "0.00"),
+    ]
+    for i, (labeltext, formula, fmt) in enumerate(rows_cal):
+        r = s + 3 + i
+        ws.cell(row=r, column=1, value=labeltext).font = lab
+        c = ws.cell(row=r, column=3, value=formula)
+        c.number_format = fmt
+    q80_cell = f"C{s + 5}"
+    # the calibrated bounds above reference q80; patch the placeholder now that it is placed
+    for i in range(nc):
+        r = 5 + i
+        ws.cell(row=r, column=10, value=f"=E{r}-${q80_cell[0]}${q80_cell[1:]}*G{r}")
+        ws.cell(row=r, column=11, value=f"=E{r}+${q80_cell[0]}${q80_cell[1:]}*G{r}")
+    CAL_Q = f"'MC Calibration'!${q80_cell[0]}${q80_cell[1:]}"
 
     wb.save(OUT)
     print("wrote", OUT)
