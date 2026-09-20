@@ -76,12 +76,9 @@ def header(ws, row, cols, widths=None):
             ws.column_dimensions[get_column_letter(1 + i)].width = w
 
 
-def title(ws, text, sub=None):
+def title(ws, text):
     ws["A1"] = text
     ws["A1"].font = title_font
-    if sub:
-        ws["A2"] = sub
-        ws["A2"].font = note_font
 
 
 def main() -> None:
@@ -145,7 +142,7 @@ def main() -> None:
 
     # ---------------------------------------------------------------- Raw
     ws = sheet(wb, "Raw Orders")
-    title(ws, "Raw order book", "One row per project, as extracted. No calculated fields.")
+    title(ws, "Raw order book")
     cols = ["order_id", "region", "market", "booked_month", "mw", "order_value",
             "promised_months", "expected_conversion", "actual_conversion",
             "cancelled", "slip_months"]
@@ -170,8 +167,7 @@ def main() -> None:
 
     # ---------------------------------------------------------------- Engineered
     ws = sheet(wb, "Engineered Orders")
-    title(ws, "Engineered fields",
-          "Every column is a formula against Raw Orders. Nothing here is typed in.")
+    title(ws, "Engineered fields")
     cols = ["order_id", "region", "market", "mw", "order_value",
             "material_committed", "expected_conversion", "actual_conversion",
             "slip_months", "slip_check_from_dates", "status", "material_at_risk"]
@@ -224,8 +220,7 @@ def main() -> None:
 
     # ---------------------------------------------------------------- Monthly
     ws = sheet(wb, "Monthly by Region")
-    title(ws, "Monthly aggregates by region",
-          "SUMIFS against the raw tab. Backlog is cumulative bookings less cumulative conversions.")
+    title(ws, "Monthly aggregates by region")
     cols = ["region", "month", "orders booked", "MW booked", "value booked ($)",
             "value converted ($)", "backlog ($)", "book-to-bill",
             "material vs backlog ($)"]
@@ -261,9 +256,7 @@ def main() -> None:
 
     # ---------------------------------------------------------------- Slip
     ws = sheet(wb, "Slip by Market")
-    title(ws, "Schedule slip distribution by market",
-          "Array percentiles over the raw slip column, filtered to each market. "
-          "Cancelled orders excluded.")
+    title(ws, "Schedule slip distribution by market")
     header(ws, 4, ["market", "region", "orders", "P10", "median", "P90", "mean"],
            [16, 16, 10, 10, 10, 10, 10])
     mkt_region = orders.drop_duplicates("market").set_index("market").region.to_dict()
@@ -286,9 +279,7 @@ def main() -> None:
 
     # ---------------------------------------------------------------- Blend
     ws = sheet(wb, "Region vs Market")
-    title(ws, "Market against regional blend",
-          "The regional figure is a volume-weighted blend of its markets, so where a region "
-          "holds two unlike markets it describes neither.")
+    title(ws, "Market against regional blend")
     header(ws, 4, ["region", "region P90", "market", "market P90", "gap vs region"],
            [16, 12, 16, 12, 14])
     r = 5
@@ -306,9 +297,7 @@ def main() -> None:
 
     # ---------------------------------------------------------------- Lookback
     ws = sheet(wb, "Lookback")
-    title(ws, "Conversion lookback",
-          "What was expected to convert each month against what did. Cumulative bias is the "
-          "quantity a realization rate should be set from.")
+    title(ws, "Conversion lookback")
     header(ws, 4, ["region", "month", "expected MW", "actual MW", "realization",
                    "bias MW", "cumulative bias MW"],
            [15, 12, 13, 12, 12, 12, 18])
@@ -336,9 +325,7 @@ def main() -> None:
 
     # ---------------------------------------------------------------- Commitment
     ws = sheet(wb, "Commitment")
-    title(ws, "Material committed against backlog",
-          "Closing backlog by region at the final month, priced at the material rate, "
-          "across a range of realization assumptions.")
+    title(ws, "Material committed against backlog")
     rates = [1.00, 0.95, 0.90, 0.85, 0.80, 0.75, 0.70]
     header(ws, 4, ["region", "closing backlog ($)"] + [f"at {int(x*100)}%" for x in rates]
            + ["exposure 100% vs 70%"],
@@ -369,9 +356,7 @@ def main() -> None:
 
     # ---------------------------------------------------------------- MC out
     ws = sheet(wb, "MC Forward")
-    title(ws, "Forward material requirement (model output)",
-          "From montecarlo.py. Not reproducible in Excel: 4,000 simulations resampling "
-          "market-conditioned slip across the open order book, plus forward bookings.")
+    title(ws, "Forward material requirement")
     t = mc[(mc.scope == "TOTAL")].pivot_table(index="month", columns="layer",
                                               values="p50").reset_index()
     band = mc[(mc.scope == "TOTAL") & (mc.layer == "all")].sort_values("month")
@@ -409,10 +394,7 @@ def main() -> None:
     ws.merge_cells(start_row=nb + 2, start_column=1, end_row=nb + 3, end_column=8)
 
     ws = sheet(wb, "MC Calibration")
-    title(ws, "Interval calibration",
-          "Walk-forward test. At each historical cutoff the model forecasts forward using only "
-          "orders open at that time; the outcome is then compared against the stated interval. "
-          "Only the P10/P50/P90 columns come from the model. Everything right of them is a formula.")
+    title(ws, "Interval calibration")
     nc = len(cov)
     lastr = 4 + nc
     header(ws, 4, ["cutoff", "month", "actual ($)", "P10", "P50", "P90",
