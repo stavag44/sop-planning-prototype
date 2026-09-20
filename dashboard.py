@@ -1,4 +1,4 @@
-"""
+﻿"""
 Builds a self-contained HTML S&OP dashboard from the simulated data.
 
 SYNTHETIC DATA. Demonstrates a method, not Nextpower's business.
@@ -385,6 +385,23 @@ def main() -> None:
   .lede {{ font-size:16px; color:var(--ink); margin:0 0 18px; max-width:78ch;
       font-weight:400; }}
   .note {{ font-size:13px; color:var(--subtle); margin:8px 0 16px; max-width:86ch; }}
+  .decisions {{ background:#fff; border:1px solid var(--line); padding:26px 28px 20px;
+      margin-bottom:22px; }}
+  .decisions table {{ margin-top:14px; }}
+  .decisions th:first-child {{ width:23%; }}
+  .decisions th:last-child {{ width:26%; }}
+  .who-role {{ font-weight:600; color:var(--ink); }}
+  .who-role span {{ display:block; font-weight:400; font-size:11.5px; color:var(--muted);
+      text-transform:none; letter-spacing:0; margin-top:2px; }}
+  .q {{ color:var(--ink); }}
+  .decisions a {{ color:var(--orange); text-decoration:none;
+      border-bottom:1px solid rgba(254,80,0,.35); }}
+  .decisions a:hover {{ border-bottom-color:var(--orange); }}
+  section {{ scroll-margin-top:16px; }}
+  .closing {{ background:var(--ink); color:#fff; padding:28px 30px; margin-bottom:22px; }}
+  .closing h2 {{ color:var(--orange); }}
+  .closing p {{ font-size:15px; max-width:80ch; margin:0 0 14px; color:#e5e5e5; }}
+  .closing strong {{ color:#fff; }}
   table {{ width:100%; border-collapse:collapse; font-size:13px; }}
   th {{ text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:1px;
       color:var(--muted); border-bottom:1px solid var(--ink); padding:9px; }}
@@ -427,6 +444,39 @@ def main() -> None:
   business, and this is not a Nextpower document.
 </div>
 
+<div class="decisions">
+  <h2>Who this is for</h2>
+  <p class="lede">A demand plan is only worth what it changes. Four functions consume this one,
+  each arriving with a different question.</p>
+  <table>
+    <thead><tr><th>Consumer</th><th>The question they arrive with</th><th>Where it is answered</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="who-role">Supply chain planning<span>owns the plan</span></td>
+        <td class="q">Can I commit against this plan, and where do I put a small team of planners?</td>
+        <td><a href="#s4">Calibration and bias</a>, and <a href="#s2">slip by market</a></td>
+      </tr>
+      <tr>
+        <td class="who-role">Global steel sourcing<span>consumes the number</span></td>
+        <td class="q">How much coil do I commit, for which months, and where is optionality worth
+        paying for rather than committing firm?</td>
+        <td><a href="#s1">Requirement as a range</a>, and <a href="#s2c">the same split by region</a></td>
+      </tr>
+      <tr>
+        <td class="who-role">Regional supply chain<span>lives with the consequence</span></td>
+        <td class="q">Does the global number represent my region, and what do I escalate this month?</td>
+        <td><a href="#s2b">Market against regional blend</a>, and <a href="#s5">the exception list</a></td>
+      </tr>
+      <tr>
+        <td class="who-role">Supply chain leadership<span>answers to finance</span></td>
+        <td class="q">How much cash is committed against backlog that may not convert, and who
+        chose that number?</td>
+        <td><a href="#s3">Realization as a control</a></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
 <div class="kpis">
   <div class="kpi"><div class="v">${open_material/1e6:,.0f}M</div>
     <div class="l">material against open backlog</div></div>
@@ -440,7 +490,7 @@ def main() -> None:
     <div class="l">material on exception orders</div></div>
 </div>
 
-<section>
+<section id="s1">
   <h2>1 &nbsp;What to commit, as a range</h2>
   <p class="lede">Median material requirement by month across the open order book, with an 80%
   interval. The outer band is the same interval after conformal calibration widened it to match
@@ -450,7 +500,7 @@ def main() -> None:
   is the quantity a commitment decision is actually made against.</p>
 </section>
 
-<section>
+<section id="s2">
   <h2>2 &nbsp;Where the uncertainty comes from</h2>
   <p class="lede">Schedule slip from booked date to delivery, by market, across
   {len(orders):,} orders.</p>
@@ -460,7 +510,7 @@ def main() -> None:
   {p90_market['US / Canada']:.1f} for US and Canada.</p>
 </section>
 
-<section>
+<section id="s2b">
   <h2>2b &nbsp;Why the regional average is the wrong unit</h2>
   <p class="lede">The same P90s, grouped by region, with the blended regional figure marked. In the
   two regions that contain more than one market, the regional number describes neither half of it.</p>
@@ -472,7 +522,7 @@ def main() -> None:
   figure runs early on one market and late on the other.</p>
 </section>
 
-<section>
+<section id="s2c">
   <h2>2c &nbsp;The same requirement, split by region</h2>
   <p class="lede">Forward material requirement by region, with India shown dotted inside APAC.</p>
   {html['regions']}
@@ -481,7 +531,7 @@ def main() -> None:
   difference is material that would be bought and not needed.</p>
 </section>
 
-<section>
+<section id="s3">
   <h2>3 &nbsp;Realization rate as a control</h2>
   <p class="lede">Material committed against open backlog at a given realization assumption.
   Move the slider.</p>
@@ -491,7 +541,7 @@ def main() -> None:
   dates on the projects that hold.</p>
 </section>
 
-<section>
+<section id="s4">
   <h2>4 &nbsp;Was the forecast right, and by how much</h2>
   <p class="lede">Conversion lookback. What was expected to convert each month against what
   actually did, by region, with cumulative bias.</p>
@@ -506,7 +556,7 @@ def main() -> None:
   to {cal_cov:.0f}%.</p>
 </section>
 
-<section>
+<section id="s5">
   <h2>5 &nbsp;What actually moved</h2>
   <p class="lede">Orders that slipped two months or more, or cancelled, ranked by material at
   risk.</p>
@@ -520,6 +570,20 @@ def main() -> None:
   <p class="note">${at_risk/1e6:,.0f}M of material sits on these orders. Each row names the order,
   the market, and how far the date moved.</p>
 </section>
+
+<div class="closing">
+  <h2>What it takes to run this</h2>
+  <p>Every number above comes from one thing the order book does not usually retain: an
+  <strong>expected conversion date per order, recorded at the time it was expected</strong>, kept
+  month over month. Without that record there is no lookback, so the realization rate stays a
+  number somebody chooses and the interval stays uncalibrated.</p>
+  <p>That is the first thing to build, before any model. It is also the cheapest, because the
+  dates already exist in the pipeline; they are simply overwritten each month rather than kept.</p>
+  <p>The reason it is worth doing: today each of the four functions above discounts the plan by
+  some private amount and pads its own decision accordingly. None of those corrections are
+  visible to the others, so they compound. A measured bias makes the correction happen
+  <strong>once, centrally, with the arithmetic on the page</strong>.</p>
+</div>
 
 <footer>
   Built from a project-level simulation with market-specific schedule slip, a Monte Carlo over the
