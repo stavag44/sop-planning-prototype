@@ -73,6 +73,22 @@ FONT = ('"PP Neue Montreal", system-ui, -apple-system, BlinkMacSystemFont, '
         '"Segoe UI", Roboto, "Noto Sans", Ubuntu, Cantarell, "Helvetica Neue", sans-serif')
 
 
+def V(a):
+    """Plotly does not serialise pandas 3.x Series or extension arrays; they arrive
+    in the page as empty traces with no error. Hand it plain values."""
+    if isinstance(a, (pd.Series, pd.Index)):
+        a = a.to_numpy()
+    if isinstance(a, np.ndarray):
+        if np.issubdtype(a.dtype, np.datetime64):
+            return a
+        if a.dtype == object:
+            return a.tolist()
+        return np.asarray(a, dtype=float)
+    if isinstance(a, (list, tuple)):
+        return list(a)
+    return a
+
+
 def hex_to_rgba(hex_color: str, alpha: float) -> str:
     h = hex_color.lstrip("#")
     r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
@@ -99,39 +115,46 @@ def base_layout(fig, height=380, legend=True):
 
 # ---------------------------------------------------------------- 1 + 2
 def fig_forward(mc: pd.DataFrame) -> go.Figure:
-    t = mc[(mc.scope == "TOTAL") & (mc.layer == "all")].sort_values("month")
-    firm = mc[(mc.scope == "TOTAL") & (mc.layer == "firm")].sort_values("month")
-    pipe = mc[(mc.scope == "TOTAL") & (mc.layer == "pipeline")].sort_values("month")
+    # reset_index is load-bearing: these are three differently-indexed slices, and
+    # adding two of them index-aligned yields NaN and a silently missing fill.
+    sel = (mc.scope == "TOTAL")
+    t = mc[sel & (mc.layer == "all")].sort_values("month").reset_index(drop=True)
+    firm = mc[sel & (mc.layer == "firm")].sort_values("month").reset_index(drop=True)
+    pipe = mc[sel & (mc.layer == "pipeline")].sort_values("month").reset_index(drop=True)
     x = t.month
+    firm_y = firm.p50.to_numpy() / 1e6
+    stack_y = (firm.p50.to_numpy() + pipe.p50.to_numpy()) / 1e6
     fig = go.Figure()
 
-    # composition of the median: firm backlog, then bookings not yet placed
+    # composition of the expected total: firm backlog, then bookings not yet placed
     fig.add_trace(go.Scatter(
-        x=x, y=firm.p50 / 1e6, mode="lines", line=dict(width=0),
+        x=V(x), y=V(firm_y), mode="lines", line=dict(width=0),
         fill="tozeroy", fillcolor=hex_to_rgba(DARK, 0.55),
         name="already booked",
         hovertemplate="already booked: %{y:.1f}M<extra></extra>"))
     fig.add_trace(go.Scatter(
-        x=x, y=(firm.p50 + pipe.p50) / 1e6, mode="lines", line=dict(width=0),
-        fill="tonexty", fillcolor=hex_to_rgba(ORANGE, 0.45),
+        x=V(x), y=V(stack_y), mode="lines", line=dict(width=0),
+        fill="tonexty", fillcolor=hex_to_rgba(ORANGE, 0.55),
         name="not yet booked",
         hovertemplate="incl. not yet booked: %{y:.1f}M<extra></extra>"))
 
-    if "cal80_hi" in t and t.cal80_hi.notna().any():
-        fig.add_trace(go.Scatter(
-            x=list(x) + list(x[::-1]),
-            y=list(t.cal80_hi / 1e6) + list(t.cal80_lo[::-1] / 1e6),
-            fill="toself", fillcolor="rgba(17,17,17,0.10)", line=dict(width=0),
-            name="calibrated 80%", hoverinfo="skip"))
-    fig.add_trace(go.Scatter(
-        x=list(x) + list(x[::-1]),
-        y=list(t.p90 / 1e6) + list(t.p10[::-1] / 1e6),
-        fill="toself", fillcolor="rgba(17,17,17,0.16)", line=dict(width=0),
-        name="raw 80%", hoverinfo="skip"))
-    fig.add_trace(go.Scatter(x=x, y=t.p50 / 1e6, mode="lines+markers",
+    # Uncertainty as bounding lines rather than another translucent fill. Two
+    # stacked areas plus two shaded bands turns the whole plot to mud and buries
+    # the composition, which is the thing worth seeing here.
+    lo = t.cal80_lo if ("cal80_lo" in t and t.cal80_lo.notna().any()) else t.p10
+    hi = t.cal80_hi if ("cal80_hi" in t and t.cal80_hi.notna().any()) else t.p90
+    fig.add_trace(go.Scatter(x=V(x), y=V(hi / 1e6), mode="lines",
+                             line=dict(color=INK, width=1.2, dash="dot"),
+                             name="80% interval",
+                             hovertemplate="high: %{y:.1f}M<extra></extra>"))
+    fig.add_trace(go.Scatter(x=V(x), y=V(lo / 1e6), mode="lines",
+                             line=dict(color=INK, width=1.2, dash="dot"),
+                             name="80% interval", showlegend=False,
+                             hovertemplate="low: %{y:.1f}M<extra></extra>"))
+    fig.add_trace(go.Scatter(x=V(x), y=V(t.p50 / 1e6), mode="lines+markers",
                              line=dict(color=INK, width=2.5),
-                             marker=dict(size=5), name="median",
-                             hovertemplate="median total: %{y:.1f}M<extra></extra>"))
+                             marker=dict(size=5), name="expected total",
+                             hovertemplate="expected total: %{y:.1f}M<extra></extra>"))
     fig.update_yaxes(title_text="$M of material", rangemode="tozero")
     return base_layout(fig, 420)
 
@@ -145,14 +168,14 @@ def fig_region_bands(mc: pd.DataFrame) -> go.Figure:
         if r.empty:
             continue
         dash = "dot" if region.startswith("India") else "solid"
-        fig.add_trace(go.Scatter(x=r.month, y=r.p50 / 1e6, mode="lines",
+        fig.add_trace(go.Scatter(x=V(r.month), y=V(r.p50 / 1e6), mode="lines",
                                  line=dict(color=color, width=2, dash=dash),
                                  name=region,
                                  hovertemplate=region + ": %{y:.1f}M<extra></extra>"))
         if dash == "solid":
             fig.add_trace(go.Scatter(
-                x=list(r.month) + list(r.month[::-1]),
-                y=list(r.p90 / 1e6) + list(r.p10[::-1] / 1e6),
+                x=list(V(r.month)) + list(V(r.month))[::-1],
+                y=list(V(r.p90 / 1e6)) + list(V(r.p10 / 1e6))[::-1],
                 fill="toself", fillcolor=hex_to_rgba(color, 0.13),
                 line=dict(width=0), showlegend=False,
                 hoverinfo="skip", name=region))
@@ -169,7 +192,7 @@ def fig_slip(orders: pd.DataFrame) -> go.Figure:
     for market in order:
         s = live[live.market == market].slip_months
         fig.add_trace(go.Box(
-            y=s, name=market, marker_color=MARKET_COLORS.get(market, MUTED),
+            y=V(s), name=market, marker_color=MARKET_COLORS.get(market, MUTED),
             boxpoints=False, line=dict(width=1.6),
             hovertemplate=market + "<br>median %{median:.1f} mo<extra></extra>"))
     fig.update_yaxes(title_text="schedule slip, months")
@@ -193,7 +216,7 @@ def fig_blend(orders: pd.DataFrame) -> go.Figure:
     colors = [MARKET_COLORS.get(m, MUTED) for _, m, _ in rows]
 
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=vals, y=labels, orientation="h", marker_color=colors,
+    fig.add_trace(go.Bar(x=V(vals), y=labels, orientation="h", marker_color=colors,
                          text=[f"{v:.1f}" for v in vals], textposition="outside",
                          hovertemplate="%{y}: P90 %{x:.1f} months<extra></extra>",
                          name="market"))
@@ -202,7 +225,7 @@ def fig_blend(orders: pd.DataFrame) -> go.Figure:
         if not members:
             continue
         fig.add_trace(go.Scatter(
-            x=[rg[region]] * len(members), y=members, mode="markers",
+            x=V([float(rg[region])] * len(members)), y=members, mode="markers",
             marker=dict(symbol="diamond", size=11, color="#22262c",
                         line=dict(color="#fff", width=1.5)),
             name=f"{region} blended", showlegend=(region == "EMEA"),
@@ -226,7 +249,7 @@ def fig_scenario(monthly: pd.DataFrame) -> go.Figure:
     fig = go.Figure()
     for i, rate in enumerate(rates):
         fig.add_trace(go.Bar(
-            x=regions, y=base * rate, visible=(i == len(rates) - 1),
+            x=regions, y=V(base * rate), visible=(i == len(rates) - 1),
             marker_color=[REGION_COLORS[r] for r in regions],
             hovertemplate="%{x}: $%{y:.1f}M<extra></extra>",
             text=[f"${v:.0f}M" for v in base * rate], textposition="outside",
@@ -260,12 +283,12 @@ def fig_lookback(lookback: pd.DataFrame) -> go.Figure:
         if r.empty:
             continue
         roll = r.set_index("month").realization.rolling(3, min_periods=1).mean()
-        fig.add_trace(go.Scatter(x=roll.index, y=roll.values * 100, mode="lines",
+        fig.add_trace(go.Scatter(x=V(roll.index), y=V(roll.to_numpy() * 100), mode="lines",
                                  line=dict(color=color, width=2), name=region,
                                  legendgroup=region,
                                  hovertemplate=region + ": %{y:.0f}%<extra></extra>"),
                       row=1, col=1)
-        fig.add_trace(go.Scatter(x=r.month, y=r.cum_bias, mode="lines",
+        fig.add_trace(go.Scatter(x=V(r.month), y=V(r.cum_bias), mode="lines",
                                  line=dict(color=color, width=2), name=region,
                                  legendgroup=region, showlegend=False,
                                  hovertemplate=region + ": %{y:,.0f} MW<extra></extra>"),
@@ -337,6 +360,8 @@ def main() -> None:
     spread_pct = (nxt.p90 - nxt.p10) / nxt.p50 * 100
     firm_first = firm_t.p50.iloc[0] / t.p50.iloc[0] * 100
     firm_last = firm_t.p50.iloc[-1] / t.p50.iloc[-1] * 100
+    firm_share = (firm_t.p50.to_numpy() / t.p50.to_numpy())
+    fully_firm = int((firm_share >= 0.999).sum())
     spread_first = (t.p90.iloc[0] - t.p10.iloc[0]) / 1e6
     spread_last = (t.p90.iloc[-1] - t.p10.iloc[-1]) / 1e6
     raw_cov = cov.in_80.mean() * 100
@@ -499,20 +524,18 @@ def main() -> None:
   <div class="kpi"><div class="v">${open_material/1e6:,.0f}M</div>
     <div class="l">material against open backlog</div></div>
   <div class="kpi"><div class="v">${nxt.p50/1e6:,.0f}M</div>
-    <div class="l">next month, median requirement</div></div>
-  <div class="kpi"><div class="v">&plusmn;{spread_pct/2:,.0f}%</div>
-    <div class="l">80% interval around it</div></div>
-  <div class="kpi"><div class="v">{widen:,.2f}&times;</div>
-    <div class="l">conformal widening applied</div></div>
+    <div class="l">needed next month</div></div>
+  <div class="kpi"><div class="v">{fully_firm} months</div>
+    <div class="l">covered by orders already booked</div></div>
   <div class="kpi"><div class="v">${at_risk/1e6:,.0f}M</div>
-    <div class="l">material on exception orders</div></div>
+    <div class="l">material on orders that moved</div></div>
 </div>
 
 <section id="s1">
   <h2>1 &nbsp;What to commit, as a range</h2>
-  <p class="lede">Material required by month, in two layers. The dark area is demand from orders
-  already on the books. The orange area is demand from bookings not yet placed. The band is the
-  80% interval on the total, with the outer band showing it after conformal calibration.</p>
+  <p class="lede">Material required by month, in two layers. The grey area is demand from orders
+  already on the books. The orange area is demand from bookings not yet placed. The dotted lines
+  are the range the total is expected to fall within eight times out of ten.</p>
   {html['forward']}
   <p class="note">The mix changes across the horizon. Next month is {firm_first:.0f}% firm; twelve
   months out it is {firm_last:.0f}%. That is why the band widens from ${spread_first:.0f}M to
