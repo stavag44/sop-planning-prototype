@@ -214,11 +214,14 @@ def fig_region_bands(mc: pd.DataFrame) -> go.Figure:
         plot_bgcolor=PLOT_BG, paper_bgcolor=PLOT_BG,
         font=dict(family=FONT, size=11, color=INK),
         showlegend=False, hovermode="closest")
+    # Only restyle the subplot titles. The axis-ceiling notes are annotations too,
+    # and restyling them turned each one into a second title on its panel.
     for a in fig.layout.annotations:
-        a.font.size = 12
-        a.font.color = INK
-        a.x = a.x - 0.03
-        a.xanchor = "left"
+        if a.text in order:
+            a.font.size = 12
+            a.font.color = INK
+            a.x = a.x - 0.03
+            a.xanchor = "left"
     return fig
 
 
@@ -236,7 +239,7 @@ def fig_slip(orders: pd.DataFrame) -> go.Figure:
             # the long tails the caption cites appear nowhere on the chart.
             boxpoints="outliers", marker=dict(size=3, opacity=0.45),
             line=dict(width=1.6),
-            hovertemplate=market + "<br>median %{median:.1f} mo<extra></extra>"))
+            hoverinfo="y"))
     fig.update_yaxes(title_text="schedule slip, months")
     return base_layout(fig, 360, legend=False)
 
@@ -359,7 +362,7 @@ def fig_coverage(cov: pd.DataFrame) -> go.Figure:
     raw = cov.in_80.mean() * 100
     cal = cov.in_80_cal.mean() * 100 if "in_80_cal" in cov else np.nan
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=["stated", "raw model", "after conformal"],
+    fig.add_trace(go.Bar(x=["stated", "raw, held out", "calibrated, held out"],
                          y=[80, raw, cal],
                          marker_color=[MUTED, ACCENT, NAVY],
                          text=[f"{v:.0f}%" for v in [80, raw, cal]],
@@ -437,6 +440,24 @@ def main() -> None:
                           | (orders.actual_conversion > cutoff))]
     at_risk = open_book[open_book.slip_months >= 2].material_committed.sum()
 
+    n_months = int(cov.month.nunique())
+    if cal_cov_test > raw_cov_test + 2:
+        cal_verdict = (
+            f"The correction is fitted on the earliest five cutoffs and scored on the three most "
+            f"recent, which the fit never saw. On that held-out sample it moved coverage from "
+            f"{raw_cov_test:.0f}% to {cal_cov_test:.0f}%.")
+    elif cal_cov_test < raw_cov_test - 2:
+        cal_verdict = (
+            f"The correction is fitted on the earliest five cutoffs and scored on the three most "
+            f"recent, which the fit never saw. On that held-out sample it made things worse: "
+            f"coverage fell from {raw_cov_test:.0f}% to {cal_cov_test:.0f}%. The fitted period ran "
+            f"wider than nominal, so the correction narrowed the band, and the later period did not "
+            f"behave the same way. That is a negative result and it is reported as one.")
+    else:
+        cal_verdict = (
+            f"The correction is fitted on the earliest five cutoffs and scored on the three most "
+            f"recent, which the fit never saw. On that held-out sample coverage was unchanged at "
+            f"{cal_cov_test:.0f}%, so the correction bought committed width and no accuracy.")
     firm_share_all = (firm_t.p50.to_numpy() / t.p50.to_numpy())
     months_half_firm = int((firm_share_all >= 0.5).sum())
 
@@ -674,17 +695,15 @@ def main() -> None:
   functions are already correcting for informally.</p>
   {html['coverage']}
   <p class="note">Walk-forward test. The stated 80% interval contained the outcome
-  {raw_cov_all:.0f}% of the time across all cutoffs, so it runs mildly overconfident. Of the misses,
-  {miss_high} fell above the interval and {miss_low} below, which is close to two-sided, so the
-  correction barely shifts the centre and mostly widens: {widen:.2f}x.</p>
-  <p class="note">The important part is how that was tested. The multiplier is fitted on the
-  earliest five cutoffs ({n_cal} month-forecasts) and then scored on the three most recent
-  ({n_test}), which the fit never saw. On that held-out sample the raw interval covered
-  {raw_cov_test:.0f}% and the calibrated interval {cal_cov_test:.0f}%. Widening did not improve
-  held-out coverage here, because the misses in that window fell well outside the band rather than
-  just beyond it. With {n_test} held-out observations that estimate is noisy, and reporting it as a
-  clean improvement would overstate what a sample this size can show. The method is the point: fit
-  the correction on one period, score it on another, and report what came back.</p>
+  {raw_cov_all:.0f}% of the time across all cutoffs. Of the misses, {miss_high} fell above the
+  interval and {miss_low} below.</p>
+  <p class="note">{cal_verdict}</p>
+  <p class="note">What this actually shows is the limit of the sample. Eight cutoffs over six
+  months give {n_cal}+{n_test} observations, but they cover only {n_months} distinct outcome months,
+  because overlapping windows score the same month more than once. A correction estimated from
+  that cannot be expected to generalise, and the honest read is that the test says more about how
+  much history you need than about whether the correction works. Two years of retained forecasts
+  is roughly the minimum for this layer to mean anything.</p>
 </section>
 
 <section id="sEXC">
@@ -698,8 +717,9 @@ def main() -> None:
 {exceptions_table(exc)}
     </tbody>
   </table>
-  <p class="note">${at_risk/1e6:,.0f}M of material sits on these orders. Each row names the order,
-  the market, and how far the date moved.</p>
+  <p class="note">The rows below are the largest by material at risk, drawn from every order
+  in the book. The ${at_risk/1e6:,.0f}M tile at the top counts only orders still open at the
+  cutoff, so it is a different population and the two will not reconcile by adding this column.</p>
 </section>
 
 <div class="closing">

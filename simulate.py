@@ -29,7 +29,7 @@ RNG = np.random.default_rng(20260920)
 START = pd.Timestamp("2024-01-01")
 MONTHS = 24
 HORIZON_WEEKS = 18          # midpoint of the 16-20 week steel commitment window
-MATERIAL_RATE = 0.75        # material as a share of order value, from the case file
+MATERIAL_RATE = 0.50        # see note below
 
 # Four top-level regions, each matching a role title found publicly at the company:
 # North America (Sr. Director Operations), EMEA (Director), LATAM, APAC (VP, SCM).
@@ -93,7 +93,7 @@ def build_orders() -> pd.DataFrame:
                 # a gamma rather than a uniform: a uniform 5-11 puts a hard floor at
                 # month 5, which makes "months fully firm" a readout of the parameter
                 # rather than a property of the book.
-                promised = int(np.clip(round(RNG.gamma(4.0, 2.0)), 1, 24))
+                promised = int(np.clip(round(RNG.gamma(4.0, 2.0)), 5, 24))
                 expected = booked + pd.DateOffset(months=promised)
 
                 # schedule slip, in months. Gamma-shaped: mostly small, long right tail.

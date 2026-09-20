@@ -41,7 +41,7 @@ N_SIMS = 4000
 PIPELINE_SIMS = 600          # forward bookings layer, heavier per sim
 HORIZON_MONTHS = 12
 QUANTILES = [0.10, 0.25, 0.50, 0.75, 0.90]
-MATERIAL_RATE = 0.75         # matches simulate.py
+MATERIAL_RATE = 0.50         # matches simulate.py
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data")
@@ -75,13 +75,36 @@ class EmpiricalSlipModel:
             rows.append(row)
         return pd.DataFrame(rows).sort_values("p90")
 
-    def sample(self, orders: pd.DataFrame, rng: np.random.Generator) -> np.ndarray:
+    def sample(self, orders: pd.DataFrame, rng: np.random.Generator,
+               min_slip: np.ndarray | None = None) -> np.ndarray:
+        """Draw a slip per order.
+
+        `min_slip` handles orders already past due. Such an order has demonstrated
+        a slip of at least the time elapsed since its expected date, so its draw
+        must come from the conditional distribution slip >= elapsed. Clamping an
+        unconditional draw upward instead piles every overdue order onto the first
+        forecast month and makes that month look far more certain than it is.
+        """
         out = np.empty(len(orders))
         keys = orders[self.group_col].to_numpy()
         for key in np.unique(keys):
             mask = keys == key
             pool = self.pools.get(key, self.fallback)
-            out[mask] = rng.choice(pool, size=mask.sum(), replace=True)
+            idx = np.flatnonzero(mask)
+            if min_slip is None:
+                out[idx] = rng.choice(pool, size=idx.size, replace=True)
+                continue
+            for i in idx:
+                floor = min_slip[i]
+                if floor <= 0:
+                    out[i] = rng.choice(pool)
+                    continue
+                tail = pool[pool >= floor]
+                # if nothing in this market has ever run that late, fall back to the
+                # whole book's tail, then to the floor itself
+                if tail.size == 0:
+                    tail = self.fallback[self.fallback >= floor]
+                out[i] = rng.choice(tail) if tail.size else floor
         return out
 
 
@@ -120,16 +143,16 @@ def run_mc(book: pd.DataFrame, model: EmpiricalSlipModel, cutoff: pd.Timestamp,
     total = np.zeros((n_sims, horizon))
     per_scope = {k: np.zeros((n_sims, horizon)) for k in scopes}
 
-    # An order already past due at the cutoff cannot land in the past. Without this
-    # floor a past-due order can draw a near-zero slip, land at or before the cutoff,
-    # match no forecast month, and be dropped from the forward view entirely rather
-    # than deferred. That silently removes material and biases the forecast low.
+    # Orders already past due at the cutoff have demonstrated at least that much
+    # slip, so they are drawn from the conditional distribution slip >= elapsed
+    # rather than clamped. Clamping put every overdue order in the first forecast
+    # month and made that month the most certain-looking and least real on the page.
     cutoff_key = cutoff.to_period("M").ordinal
-    earliest = cutoff_key + 1
+    elapsed = np.maximum(cutoff_key + 1 - base_exp, 0).astype(float)
 
     for s in range(n_sims):
-        slip = model.sample(book, RNG)
-        landing = np.maximum(base_exp + np.rint(slip).astype(int), earliest)
+        slip = model.sample(book, RNG, min_slip=elapsed)
+        landing = np.maximum(base_exp + np.rint(slip).astype(int), cutoff_key + 1)
         for j, mk in enumerate(month_keys):
             hit = landing == mk
             if not hit.any():
@@ -209,17 +232,27 @@ def quantile_frame(months, draws, label) -> pd.DataFrame:
 # ----------------------------------------------------------------------------
 # Layer 3: calibration. Does a stated interval actually cover?
 # ----------------------------------------------------------------------------
-def coverage_check(orders: pd.DataFrame, model: EmpiricalSlipModel,
-                   cutoffs, horizon: int = 6, n_sims: int = 800) -> pd.DataFrame:
-    """Walk-forward. At each historical cutoff, simulate forward using only orders
-    open at that time, then compare the realised material against the predicted
-    interval. Reports how often the truth fell inside, against how often it should.
+def coverage_check(orders: pd.DataFrame, cutoffs, horizon: int = 6,
+                   n_sims: int = 800) -> pd.DataFrame:
+    """Walk-forward. At each historical cutoff, refit the slip model on what had
+    actually converted by that date, simulate forward using only orders open then,
+    and compare the realised material against the predicted interval.
+
+    The refit matters. Fitting one model on the full history and reusing it at every
+    past cutoff lets the earliest forecasts draw on slips that had not happened yet,
+    which flatters coverage. Holding out the conformal multiplier does not fix that,
+    because the multiplier sits on top of quantiles the model produced.
     """
     rows = []
     for cutoff in cutoffs:
         book = open_backlog(orders, cutoff)
         if book.empty:
             continue
+        seen = orders[(~orders.cancelled) & (orders.actual_conversion.notna())
+                      & (orders.actual_conversion <= cutoff)]
+        if len(seen) < 20:
+            continue
+        model = EmpiricalSlipModel(seen, group_col="market")
         months, total, _ = run_mc(book, model, cutoff, n_sims=n_sims, horizon=horizon)
         for j, m in enumerate(months):
             actual = orders[
@@ -256,37 +289,64 @@ def conformal_split(cov: pd.DataFrame, n_cal_cutoffs: int, alpha: float = 0.20):
     Scoring the signed residual and taking the lower and upper tails separately
     lets the correction be asymmetric, which is what a one-sided miss needs.
     """
+    cov = cov.copy()
+    cov["offset"] = ((cov.month.dt.year - cov.cutoff.dt.year) * 12
+                     + (cov.month.dt.month - cov.cutoff.dt.month))
     cutoffs = sorted(cov.cutoff.unique())
     cal_cut = cutoffs[:n_cal_cutoffs]
-    cal = cov[cov.cutoff.isin(cal_cut)].copy()
-    test = cov[~cov.cutoff.isin(cal_cut)].copy()
+    cov["split"] = np.where(cov.cutoff.isin(cal_cut), "calibration", "test")
+    cal = cov[cov.split == "calibration"]
 
-    spread = (cal.p90 - cal.p10).replace(0, np.nan)
-    s = ((cal.actual - cal.p50) / spread).dropna().to_numpy()
-    n = len(s)
-    s = np.sort(s)
-    k_lo = max(int(np.ceil((n + 1) * (alpha / 2))), 1) - 1
-    k_hi = min(int(np.ceil((n + 1) * (1 - alpha / 2))), n) - 1
-    q_lo, q_hi = float(s[k_lo]), float(s[k_hi])
+    def fit(sub):
+        sp = (sub.p90 - sub.p10).replace(0, np.nan)
+        s = np.sort(((sub.actual - sub.p50) / sp).dropna().to_numpy())
+        n = len(s)
+        if n == 0:
+            return 0.0, 0.0, 0
+        k_lo = max(int(np.ceil((n + 1) * (alpha / 2))), 1) - 1
+        k_hi = min(int(np.ceil((n + 1) * (1 - alpha / 2))), n) - 1
+        return float(s[k_lo]), float(s[k_hi]), n
 
-    for d in (cal, test):
-        sp = d.p90 - d.p10
-        d["cal80_lo"] = d.p50 + q_lo * sp
-        d["cal80_hi"] = d.p50 + q_hi * sp
-        d["in_80_cal"] = (d.actual >= d.cal80_lo) & (d.actual <= d.cal80_hi)
-        d["split"] = "calibration" if d is cal else "test"
+    # Pooled fit, kept for comparison.
+    q_lo, q_hi, n_cal = fit(cal)
 
-    out = pd.concat([cal, test], ignore_index=True)
+    # Per-horizon fit. The residual is organised by how far ahead the forecast
+    # reaches, not by geography, so one multiplier across all horizons cancels
+    # opposite biases against each other instead of correcting either.
+    per = {}
+    for off, sub in cal.groupby("offset"):
+        lo, hi, n_off = fit(sub)
+        per[int(off)] = (lo, hi, n_off)
+
+    lo_arr = cov.offset.map(lambda o: per.get(int(o), (q_lo, q_hi, 0))[0]).to_numpy()
+    hi_arr = cov.offset.map(lambda o: per.get(int(o), (q_lo, q_hi, 0))[1]).to_numpy()
+    sp_all = (cov.p90 - cov.p10).to_numpy()
+    cov["cal80_lo"] = cov.p50.to_numpy() + lo_arr * sp_all
+    cov["cal80_hi"] = cov.p50.to_numpy() + hi_arr * sp_all
+    cov["in_80_cal"] = (cov.actual >= cov.cal80_lo) & (cov.actual <= cov.cal80_hi)
+    # what a single pooled multiplier would have done, for the comparison
+    cov["pool80_lo"] = cov.p50 + q_lo * sp_all
+    cov["pool80_hi"] = cov.p50 + q_hi * sp_all
+    cov["in_80_pool"] = (cov.actual >= cov.pool80_lo) & (cov.actual <= cov.pool80_hi)
+
+    test = cov[cov.split == "test"]
+    miss = cov[~cov.in_80]
     stats = dict(
-        n_cal=n, n_test=len(test),
+        n_cal=n_cal, n_test=len(test),
         q_lo=q_lo, q_hi=q_hi,
         raw_cov_test=float(test.in_80.mean() * 100),
         cal_cov_test=float(test.in_80_cal.mean() * 100),
+        pool_cov_test=float(test.in_80_pool.mean() * 100),
         raw_cov_all=float(cov.in_80.mean() * 100),
-        width_ratio=float((q_hi - q_lo) / 0.8),   # vs the raw p10-p90 width
+        # the raw band is p90-p10, i.e. 1.0 spreads. Dividing by the nominal
+        # coverage instead of the band width overstated this by 25%.
+        width_ratio=float(q_hi - q_lo),
         centre_shift=float((q_hi + q_lo) / 2),
+        miss_low_offsets=sorted({int(o) for o in miss[miss.actual < miss.p10].offset}),
+        miss_high_offsets=sorted({int(o) for o in miss[miss.actual > miss.p90].offset}),
+        per_horizon={k: (round(v[0], 3), round(v[1], 3), v[2]) for k, v in per.items()},
     )
-    return out, stats
+    return cov, stats
 
 
 def main() -> None:
@@ -370,7 +430,7 @@ def main() -> None:
 
     cutoffs = [orders.booked_month.max() - pd.DateOffset(months=k)
                for k in (14, 13, 12, 11, 10, 9, 8, 7)]
-    cov = coverage_check(orders, model, cutoffs)
+    cov = coverage_check(orders, cutoffs)
 
     stats = {}
     if not cov.empty:

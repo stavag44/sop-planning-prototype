@@ -44,7 +44,7 @@ DARK = "111827"
 GREY = "F5F5F5"
 BORDER = "D4D4D4"
 
-MATERIAL_RATE = 0.75
+MATERIAL_RATE = 0.50
 REGIONS = ["North America", "EMEA", "APAC", "LATAM"]
 MARKETS = ["US / Canada", "Europe", "MENA", "Australia/SEA", "India", "LATAM"]
 
@@ -132,7 +132,7 @@ def main() -> None:
     ws.cell(row=r + 1, column=1, value=(
         "Excel reproduces every aggregate in this workbook, including the conformal calibration, "
         "which is worked in full on the calibration tab. The one thing it cannot reasonably do is "
-        "run 4,000 simulations across 895 orders, so the P10/P50/P90 columns on the two MC tabs "
+        "run 4,000 simulations across the order book, so the P10/P50/P90 columns on the two MC tabs "
         "are simulated values. Everything derived from them is a formula. The scripts are in the "
         "same repository."))
     ws.cell(row=r + 1, column=1).alignment = Alignment(wrap_text=True, vertical="top")
@@ -242,7 +242,7 @@ def main() -> None:
                     value=(f"=SUMIFS({R_VAL},{R_REG},$A{r},{R_ACT},$B{r},"
                            f"{R_CAN},FALSE)")).number_format = "#,##0"
             ws.cell(row=r, column=7,
-                    value=(f"=SUMIFS({R_VAL},{R_REG},$A{r},{R_BOOK},\"<=\"&$B{r})"
+                    value=(f"=SUMIFS({R_VAL},{R_REG},$A{r},{R_BOOK},\"<=\"&$B{r},{R_CAN},FALSE)"
                            f"-SUMIFS({R_VAL},{R_REG},$A{r},{R_ACT},\"<=\"&$B{r},"
                            f"{R_CAN},FALSE)")).number_format = "#,##0"
             ws.cell(row=r, column=8,

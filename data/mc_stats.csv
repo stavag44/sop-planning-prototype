@@ -1,12 +1,16 @@
-n_cal,30.0
-n_test,18.0
-q_lo,-0.6053950711123081
-q_hi,0.5639113936692318
-raw_cov_test,83.33333333333334
-cal_cov_test,83.33333333333334
-raw_cov_all,72.91666666666666
-width_ratio,1.4616330809769247
-centre_shift,-0.02074183872153812
-miss_high,7.0
-miss_low,6.0
-overstatement,16.23172827780719
+n_cal,30
+n_test,18
+q_lo,-0.37988682186684825
+q_hi,0.27679563225567566
+raw_cov_test,77.77777777777779
+cal_cov_test,55.55555555555556
+pool_cov_test,72.22222222222221
+raw_cov_all,87.5
+width_ratio,0.6566824541225239
+centre_shift,-0.05154559480558629
+miss_low_offsets,[2]
+miss_high_offsets,"[1, 5]"
+per_horizon,"{1: (-0.45, 0.2, 5), 2: (-0.801, -0.093, 5), 3: (-0.434, 0.273, 5), 4: (-0.119, 0.337, 5), 5: (-0.124, 0.534, 5), 6: (-0.205, 0.23, 5)}"
+miss_high,4
+miss_low,2
+overstatement,15.939624247757433
