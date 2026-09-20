@@ -6,8 +6,8 @@ The point of this file is lineage. It lays out the raw order book as an ERP woul
 hand it over, then every derived field and aggregate as a live Excel formula against
 that raw tab, so each number on the dashboard can be traced back to a source row.
 
-Anything Excel can reasonably compute is a formula. The Monte Carlo and the conformal
-calibration are the two steps it cannot, and those tabs are marked as model output.
+Anything Excel can reasonably compute is a formula. The Monte Carlo draw is the one step
+it cannot, so the tabs that carry simulated percentiles are marked as model output.
 
 Output: SOP_data_and_calculations.xlsx
 """
@@ -113,8 +113,8 @@ def main() -> None:
         ("Region vs Market", "Each market's P90 against its region's blended P90.", "formulas"),
         ("Lookback", "Expected against actual conversion by region and month, with cumulative bias.", "formulas"),
         ("Commitment", "Material committed against backlog at a range of realization assumptions.", "formulas"),
-        ("MC Forward", "Forward requirement by month. Simulated P10/P50/P90; calibrated bounds are formulas.", "mixed"),
-        ("MC Calibration", "Walk-forward coverage test. The conformal step is worked in full, as formulas.", "mixed"),
+        ("MC Forward", "Forward requirement by month. Simulated P10/P50/P90; spread and firm share are formulas.", "mixed"),
+        ("MC Coverage", "Walk-forward test. How often the stated interval contained the outcome, by months ahead.", "mixed"),
     ]
     header(ws, 7, ["Tab", "What is on it", "Type"], [22, 86, 15])
     for i, (a, b, c) in enumerate(rows):
@@ -130,11 +130,10 @@ def main() -> None:
     r = 8 + len(rows) + 2
     ws.cell(row=r, column=1, value="On the two model-output tabs").font = sec_font
     ws.cell(row=r + 1, column=1, value=(
-        "Excel reproduces every aggregate in this workbook, including the conformal calibration, "
-        "which is worked in full on the calibration tab. The one thing it cannot reasonably do is "
-        "run 4,000 simulations across the order book, so the P10/P50/P90 columns on the two MC tabs "
-        "are simulated values. Everything derived from them is a formula. The scripts are in the "
-        "same repository."))
+        "Excel reproduces every aggregate in this workbook, including the whole coverage test. The "
+        "one thing it cannot reasonably do is run 4,000 simulations across the order book, so the "
+        "P10/P50/P90 columns on the two MC tabs are simulated values. Everything derived from them "
+        "is a formula. The scripts are in the same repository."))
     ws.cell(row=r + 1, column=1).alignment = Alignment(wrap_text=True, vertical="top")
     ws.merge_cells(start_row=r + 1, start_column=1, end_row=r + 3, end_column=6)
     ws.cell(row=r + 5, column=1, value="Material rate used throughout (from the case study)").font = lab
@@ -360,16 +359,12 @@ def main() -> None:
     t = mc[(mc.scope == "TOTAL")].pivot_table(index="month", columns="layer",
                                               values="p50").reset_index()
     band = mc[(mc.scope == "TOTAL") & (mc.layer == "all")].sort_values("month")
-    # q80 lands on the calibration tab at a position fixed by its row count
-    _cal_s = 4 + len(cov) + 3
-    q_lo_ref = f"'MC Calibration'!$C${_cal_s + 6}"
-    q_hi_ref = f"'MC Calibration'!$C${_cal_s + 7}"
     header(ws, 4, ["month", "already booked ($)", "not yet booked ($)",
                    "expected total ($)", "low (P10)", "high (P90)",
-                   "spread", "calibrated low", "calibrated high", "firm share"],
-           [12, 18, 18, 17, 14, 14, 12, 15, 15, 12])
-    ws.cell(row=3, column=8, value=("= expected total -/+ q80 x spread, with q80 from "
-                                    "the calibration tab")).font = note_font
+                   "spread", "firm share"],
+           [12, 18, 18, 17, 14, 14, 12, 12])
+    ws.cell(row=3, column=7, value="= high - low, the width of the stated 80% interval"
+            ).font = note_font
     for i in range(len(band)):
         r = 5 + i
         b = band.iloc[i]
@@ -381,12 +376,8 @@ def main() -> None:
                         value=None if v is None or pd.isna(v) else float(v))
             c.number_format = "#,##0"
         ws.cell(row=r, column=7, value=f"=F{r}-E{r}").number_format = "#,##0"
-        ws.cell(row=r, column=8,
-                value=f"=D{r}+{q_lo_ref}*G{r}").number_format = "#,##0"
-        ws.cell(row=r, column=9,
-                value=f"=D{r}+{q_hi_ref}*G{r}").number_format = "#,##0"
-        ws.cell(row=r, column=10, value=f"=IF(D{r}=0,\"\",B{r}/D{r})").number_format = "0%"
-        for j in range(1, 11):
+        ws.cell(row=r, column=8, value=f"=IF(D{r}=0,\"\",B{r}/D{r})").number_format = "0%"
+        for j in range(1, 9):
             ws.cell(row=r, column=j).border = box
     nb = 4 + len(band)
     ws.cell(row=nb + 2, column=1, value=(
@@ -395,85 +386,81 @@ def main() -> None:
         "Medians are not additive.")).font = note_font
     ws.merge_cells(start_row=nb + 2, start_column=1, end_row=nb + 3, end_column=8)
 
-    ws = sheet(wb, "MC Calibration")
-    title(ws, "Interval calibration")
+    ws = sheet(wb, "MC Coverage")
+    title(ws, "Walk-forward interval coverage")
     nc = len(cov)
     lastr = 4 + nc
-    header(ws, 4, ["cutoff", "month", "split", "actual ($)", "P10", "P50", "P90",
-                   "spread (P90-P10)", "signed score", "inside raw 80%",
-                   "calibrated low", "calibrated high", "inside calibrated"],
-           [12, 12, 13, 14, 13, 13, 13, 16, 13, 14, 15, 15, 16])
-    ws.cell(row=3, column=9,
-            value="= (actual - P50) / spread, signed, so the correction can be asymmetric"
-            ).font = note_font
-    ws.cell(row=3, column=3,
-            value="earliest 5 cutoffs fit the correction; the last 3 only score it"
-            ).font = note_font
+    ws.cell(row=2, column=1, value=(
+        "Each row re-runs the model at a past cutoff, using only what was known at that cutoff, "
+        "and scores the forecast against what the month turned out to be.")).font = note_font
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=9)
+    header(ws, 4, ["cutoff", "month", "months ahead", "actual ($)", "P10", "P25",
+                   "P50", "P75", "P90", "spread (P90-P10)",
+                   "inside 80%", "inside 50%"],
+           [12, 12, 13, 14, 13, 13, 13, 13, 13, 16, 12, 12])
 
-    s = lastr + 3
-    # rows_cal starts at s+3; q_lo is its 4th entry and q_hi its 5th
-    q_lo_cell, q_hi_cell = f"$C${s + 6}", f"$C${s + 7}"
     for i in range(nc):
         r = 5 + i
         c0 = cov.iloc[i]
         ws.cell(row=r, column=1, value=c0.cutoff.date()).number_format = "yyyy-mm"
         ws.cell(row=r, column=2, value=c0.month.date()).number_format = "yyyy-mm"
-        ws.cell(row=r, column=3, value=str(c0.split))
-        for j, v in enumerate([c0.actual, c0.p10, c0.p50, c0.p90]):
+        ws.cell(row=r, column=3, value=int(c0.offset))
+        for j, v in enumerate([c0.actual, c0.p10, c0.p25, c0.p50, c0.p75, c0.p90]):
             ws.cell(row=r, column=4 + j, value=float(v)).number_format = "#,##0"
-        ws.cell(row=r, column=8, value=f"=G{r}-E{r}").number_format = "#,##0"
-        ws.cell(row=r, column=9,
-                value=f"=IF(H{r}=0,\"\",(D{r}-F{r})/H{r})").number_format = "+0.000;-0.000"
-        ws.cell(row=r, column=10, value=f"=IF(AND(D{r}>=E{r},D{r}<=G{r}),1,0)")
-        ws.cell(row=r, column=11, value=f"=F{r}+{q_lo_cell}*H{r}").number_format = "#,##0"
-        ws.cell(row=r, column=12, value=f"=F{r}+{q_hi_cell}*H{r}").number_format = "#,##0"
-        ws.cell(row=r, column=13, value=f"=IF(AND(D{r}>=K{r},D{r}<=L{r}),1,0)")
-        for j in range(1, 14):
+        ws.cell(row=r, column=10, value=f"=I{r}-E{r}").number_format = "#,##0"
+        ws.cell(row=r, column=11, value=f"=IF(AND(D{r}>=E{r},D{r}<=I{r}),1,0)")
+        ws.cell(row=r, column=12, value=f"=IF(AND(D{r}>=F{r},D{r}<=H{r}),1,0)")
+        for j in range(1, 13):
             ws.cell(row=r, column=j).border = box
 
-    ws.cell(row=s, column=1, value="Conformal calibration, with a holdout").font = sec_font
-    ws.cell(row=s + 1, column=1, value=(
-        "Fitting the multiplier on the same points that then score it makes the reported coverage "
-        "a restatement of the chosen rank. Here the earliest five cutoffs fit it and the latest "
-        "three score it, so the coverage figure at the bottom is out of sample. The score is "
-        "signed rather than absolute, so the correction can shift the centre as well as widen.")
-        ).font = note_font
-    ws.merge_cells(start_row=s + 1, start_column=1, end_row=s + 1, end_column=9)
+    IN80 = f"$K$5:$K${lastr}"
+    IN50 = f"$L$5:$L${lastr}"
+    AH = f"$C$5:$C${lastr}"
+    MO = f"$B$5:$B${lastr}"
 
-    CAL = f"$C$5:$C${lastr}"
-    SCORE = f"$I$5:$I${lastr}"
-    rows_cal = [
-        ("calibration observations (n)",
-         f'=COUNTIFS({CAL},"calibration")', "#,##0", False),
-        ("lower rank  = ROUNDUP((n+1) x 0.10, 0)",
-         f"=MAX(ROUNDUP((C{s+3}+1)*0.1,0),1)", "#,##0", False),
-        ("upper rank  = ROUNDUP((n+1) x 0.90, 0)",
-         f"=MIN(ROUNDUP((C{s+3}+1)*0.9,0),C{s+3})", "#,##0", False),
-        ("q_lo  = ranked score, calibration rows only",
-         f'=SMALL(IF({CAL}="calibration",{SCORE}),C{s+4})', "+0.000;-0.000", True),
-        ("q_hi  = ranked score, calibration rows only",
-         f'=SMALL(IF({CAL}="calibration",{SCORE}),C{s+5})', "+0.000;-0.000", True),
-        ("band width vs raw  = (q_hi - q_lo) / 0.8",
-         f"=(C{s+7}-C{s+6})/0.8", "0.00", False),
-        ("centre shift  = (q_hi + q_lo) / 2",
-         f"=(C{s+7}+C{s+6})/2", "+0.000;-0.000", False),
-        ("raw coverage, all cutoffs", f"=AVERAGE(J5:J{lastr})", "0%", False),
-        ("HELD OUT raw coverage",
-         f'=AVERAGEIFS(J5:J{lastr},{CAL},"test")', "0%", False),
-        ("HELD OUT calibrated coverage",
-         f'=AVERAGEIFS(M5:M{lastr},{CAL},"test")', "0%", False),
+    s = lastr + 3
+    ws.cell(row=s, column=1, value="What the test measures").font = sec_font
+    ws.cell(row=s + 1, column=1, value=(
+        "Eight cutoffs, six months forward from each. That is 48 scored forecasts but only 13 "
+        "distinct outcome months, because overlapping windows score the same month more than "
+        "once. Everything below is measurement. No multiplier is fitted here and none is applied "
+        "to the forward tab, because a sample this size would not support one.")).font = note_font
+    ws.merge_cells(start_row=s + 1, start_column=1, end_row=s + 2, end_column=9)
+
+    rows_sum = [
+        ("forecasts scored (n)", f"=COUNT({IN80})", "#,##0"),
+        ("distinct outcome months",
+         f'=SUMPRODUCT(({MO}<>"")/COUNTIF({MO},{MO}&""))', "#,##0"),
+        ("stated 80% interval, coverage achieved", f"=AVERAGE({IN80})", "0%"),
+        ("stated 50% interval, coverage achieved", f"=AVERAGE({IN50})", "0%"),
+        ("misses above the interval",
+         f"=SUMPRODUCT(--($D$5:$D${lastr}>$I$5:$I${lastr}))", "#,##0"),
+        ("misses below the interval",
+         f"=SUMPRODUCT(--($D$5:$D${lastr}<$E$5:$E${lastr}))", "#,##0"),
     ]
-    for i, (labeltext, formula, fmt, is_array) in enumerate(rows_cal):
-        r = s + 3 + i
+    for i, (labeltext, formula, fmt) in enumerate(rows_sum):
+        r = s + 4 + i
         ws.cell(row=r, column=1, value=labeltext).font = lab
-        ref = f"C{r}"
-        if is_array:
-            ws[ref] = ArrayFormula(ref, formula)
-        else:
-            ws[ref] = formula
-        ws[ref].number_format = fmt
-        if "HELD OUT" in labeltext:
+        ws[f"C{r}"] = formula
+        ws[f"C{r}"].number_format = fmt
+        if "coverage achieved" in labeltext:
             ws.cell(row=r, column=1).font = Font(bold=True, size=10, color=ORANGE)
+
+    h = s + 4 + len(rows_sum) + 2
+    ws.cell(row=h, column=1, value="Coverage by how far ahead the call was made").font = sec_font
+    ws.cell(row=h + 1, column=1, value=(
+        "The interval is weakest one month out and holds further out, which is the reverse of "
+        "the usual shape. Near-in months are dominated by a handful of large orders, and a "
+        "single one moving is enough to put the month outside the band.")).font = note_font
+    ws.merge_cells(start_row=h + 1, start_column=1, end_row=h + 2, end_column=9)
+    header(ws, h + 4, ["months ahead", "forecasts", "inside 80%"])
+    for i, off in enumerate(sorted(cov.offset.unique())):
+        r = h + 5 + i
+        ws.cell(row=r, column=1, value=int(off))
+        ws.cell(row=r, column=2, value=f"=COUNTIFS({AH},A{r})").number_format = "#,##0"
+        ws.cell(row=r, column=3, value=f"=AVERAGEIFS({IN80},{AH},A{r})").number_format = "0%"
+        for j in range(1, 4):
+            ws.cell(row=r, column=j).border = box
 
     wb.save(OUT)
     print("wrote", OUT)

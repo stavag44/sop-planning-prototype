@@ -15,8 +15,8 @@ This prototype takes 24 months of project-level bookings across four regions, ea
 market with its own schedule-slip behaviour, and produces what a monthly review would
 actually work from:
 
-- material requirement by month as a calibrated interval rather than a point number, split
-  into orders already booked and bookings not yet placed
+- material requirement by month as an interval rather than a point number, split into
+  orders already booked and bookings not yet placed
 - schedule slip by market, with outlier markets tracked separately from their region
 - committed material against backlog at a chosen realization rate, as a control
 - a conversion lookback measuring expected against actual, with cumulative bias
@@ -54,24 +54,27 @@ count. Real slip correlates through tariffs, interconnection queues and financin
 conditions, and under positive correlation the diversification benefit shrinks. A
 production model would estimate that correlation rather than assume it away.
 
-**3. Calibration.** Split-conformal coverage check, walk-forward, with a genuine
-holdout. It ignores what the model claims about its own uncertainty and measures what
-actually fell inside the stated interval.
+**3. Coverage test.** A walk-forward check of whether the interval means what it says.
+The model is re-run at eight past cutoffs using only what was known at each one, and the
+six months of forecast that follow each cutoff are scored against what the month turned
+out to be. It ignores what the model claims about its own uncertainty and measures what
+actually fell inside the stated range.
 
-The split matters. Fitting the multiplier on the same points that then score it makes
-the reported coverage a restatement of the chosen rank rather than a result. Here the
-earliest five cutoffs fit the correction and the three most recent score it. The score
-is signed rather than absolute, so the correction can shift the centre as well as widen
-the band.
+In this run the stated 80% interval contained the outcome 87.5% of the time across 48
+scored forecasts, and the stated 50% interval contained it 68.75% of the time. Of the
+misses, 4 fell above the interval and 2 below. Broken out by how far ahead the call was
+made, coverage is weakest one month out at 62.5% and sits at or above 87.5% from three
+months out. That is the reverse of the usual shape. Near-in months are carried by a
+handful of large orders, and one of them moving is enough to put the month outside the
+band.
 
-In this run the stated 80% interval covered 73% of month-forecasts across all cutoffs.
-Of the misses, 7 fell above the band and 6 below, close to two-sided, so the fitted
-correction barely moves the centre and mostly widens: 1.46x. On the held-out cutoffs the
-raw interval covered 83% and the calibrated interval also covered 83%. Widening did not
-improve held-out coverage on this sample, because those misses fell well outside the
-band rather than just beyond it. With 18 held-out observations that estimate is noisy,
-and reporting it as a clean improvement would overstate what a sample this size can
-show.
+There is no fitted correction here, and that is a decision rather than an omission. An
+earlier version ran a split-conformal step to rescale the interval. With 48 scored
+forecasts spread across six horizons it had roughly five observations per horizon to
+estimate a quantile from, which is below what the method needs to be valid, and its
+answer swung from 1.53x to 0.66x across three runs of the same pipeline. That is noise,
+not a finding. Measuring coverage and reporting it is the part the sample supports.
+Correcting on it would need about two years of retained forecasts.
 
 ## The Excel workbook
 
@@ -83,22 +86,23 @@ to the model outputs.
 Everything Excel can compute is a live formula against the raw tab, not a pasted
 value: material committed, schedule slip, status and material at risk per order;
 SUMIFS aggregates for bookings, conversions, backlog and book-to-bill; array
-percentiles for the slip distributions; the lookback with running bias; and the
-commitment scenarios, including the conformal calibration, which is worked in full. The
-one thing Excel cannot reasonably do is run 4,000 simulations across the order book, so
-the P10/P50/P90 columns on the two MC tabs are simulated values. Everything derived from
+percentiles for the slip distributions; the lookback with running bias; the commitment
+scenarios; and the whole coverage test, hit-or-miss flags and summary both. The one
+thing Excel cannot reasonably do is run 4,000 simulations across the order book, so the
+P10/P50/P90 columns on the two MC tabs are simulated values. Everything derived from
 them is a formula.
 
-The Excel figures reconcile to the Python ones exactly, including the conformal step:
-the two ranked scores, the band width, and both held-out coverage figures come out the
-same in the spreadsheet as in the model.
+The Excel figures reconcile to the Python ones exactly, coverage test included: the
+observation count, the distinct-month count, both interval coverage figures, the miss
+counts and the per-horizon breakdown come out the same in the spreadsheet as in the
+model.
 
 ## Running it
 
 ```
 pip install -r requirements.txt
 python simulate.py      # generates orders, monthly aggregates, lookback, exceptions
-python montecarlo.py    # forward simulation + conformal calibration
+python montecarlo.py    # forward simulation + walk-forward coverage test
 python dashboard.py     # writes index.html
 python check_render.py  # verifies every chart actually carries data
 python build_workbook.py
@@ -112,7 +116,7 @@ so the figures reproduce.
 | | |
 |---|---|
 | `simulate.py` | project-level booking and slip generation, four regions, six markets |
-| `montecarlo.py` | forward Monte Carlo over open backlog, conformal calibration |
+| `montecarlo.py` | forward Monte Carlo over open backlog, walk-forward coverage test |
 | `dashboard.py` | builds the self-contained HTML page |
 | `build_workbook.py` | builds the Excel workbook |
 | `check_render.py` | fails the build if any chart carries no data |

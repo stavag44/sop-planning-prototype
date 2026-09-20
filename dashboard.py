@@ -4,7 +4,7 @@ Builds a self-contained HTML S&OP dashboard from the simulated data.
 SYNTHETIC DATA. Demonstrates a method, not Nextpower's business.
 
 Five things a spreadsheet and a deck structurally cannot do:
-  1. material requirement as a calibrated distribution, not a point
+  1. material requirement as a distribution with a tested interval, not a point
   2. Monte Carlo portfolio aggregation, including the quantiles-do-not-add effect
   3. realization rate as an on-page control rather than three static slides
   4. a conversion lookback that accumulates bias by region
@@ -358,17 +358,21 @@ def fig_lookback(lookback: pd.DataFrame) -> go.Figure:
     return fig
 
 
-def fig_coverage(cov: pd.DataFrame) -> go.Figure:
-    raw = cov.in_80.mean() * 100
-    cal = cov.in_80_cal.mean() * 100 if "in_80_cal" in cov else np.nan
+def fig_coverage(by_h: pd.DataFrame) -> go.Figure:
+    """Realised coverage by how far ahead the forecast reaches, against the stated
+    80%. Per horizon rather than one pooled bar, because a single number hides which
+    months are actually weak."""
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=["stated", "raw, held out", "calibrated, held out"],
-                         y=[80, raw, cal],
-                         marker_color=[MUTED, ACCENT, NAVY],
-                         text=[f"{v:.0f}%" for v in [80, raw, cal]],
-                         textposition="outside",
-                         hovertemplate="%{x}: %{y:.0f}%<extra></extra>"))
-    fig.update_yaxes(title_text="% of months inside the interval", range=[0, 100])
+    fig.add_trace(go.Bar(
+        x=[f"+{int(o)}" for o in by_h.offset], y=V(by_h.covered),
+        marker_color=[ACCENT if c < 80 else DARK for c in by_h.covered],
+        text=[f"{c:.0f}%" for c in by_h.covered], textposition="outside",
+        hovertemplate="month %{x}: %{y:.0f}% covered<extra></extra>"))
+    fig.add_hline(y=80, line=dict(color=MUTED, width=1.4, dash="dot"),
+                  annotation_text="stated 80%", annotation_position="top left",
+                  annotation_font=dict(size=10, color=MUTED))
+    fig.update_yaxes(title_text="% of forecasts inside the interval", range=[0, 112])
+    fig.update_xaxes(title_text="months ahead")
     return base_layout(fig, 340, legend=False)
 
 
@@ -417,16 +421,17 @@ def main() -> None:
     fully_firm = int((firm_share >= 0.999).sum())
     spread_first = (t.p90.iloc[0] - t.p10.iloc[0]) / 1e6
     spread_last = (t.p90.iloc[-1] - t.p10.iloc[-1]) / 1e6
-    raw_cov = cov.in_80.mean() * 100
-    cal_cov = cov.in_80_cal.mean() * 100 if "in_80_cal" in cov else float("nan")
     stats = pd.read_csv(os.path.join(DATA, "mc_stats.csv"), header=None,
                         index_col=0).squeeze("columns").to_dict()
-    widen = float(stats["width_ratio"])
-    raw_cov_all = float(stats["raw_cov_all"])
-    raw_cov_test = float(stats["raw_cov_test"])
-    cal_cov_test = float(stats["cal_cov_test"])
-    n_cal, n_test = int(stats["n_cal"]), int(stats["n_test"])
+    by_h = pd.read_csv(os.path.join(DATA, "mc_coverage_by_horizon.csv"))
+    cov_all = float(stats["cov_all"])
+    cov_50 = float(stats["cov_50"])
+    n_obs = int(stats["n_obs"])
+    n_months = int(stats["n_months"])
+    n_cutoffs = int(stats["n_cutoffs"])
     miss_high, miss_low = int(stats["miss_high"]), int(stats["miss_low"])
+    worst_h, worst_h_cov = int(stats["worst_h"]), float(stats["worst_h_cov"])
+    best_h = float(stats["best_h_cov"])
     overstatement = float(stats["overstatement"])
 
     open_material = monthly[monthly.month == monthly.month.max()].committed_material.sum()
@@ -440,24 +445,6 @@ def main() -> None:
                           | (orders.actual_conversion > cutoff))]
     at_risk = open_book[open_book.slip_months >= 2].material_committed.sum()
 
-    n_months = int(cov.month.nunique())
-    if cal_cov_test > raw_cov_test + 2:
-        cal_verdict = (
-            f"The correction is fitted on the earliest five cutoffs and scored on the three most "
-            f"recent, which the fit never saw. On that held-out sample it moved coverage from "
-            f"{raw_cov_test:.0f}% to {cal_cov_test:.0f}%.")
-    elif cal_cov_test < raw_cov_test - 2:
-        cal_verdict = (
-            f"The correction is fitted on the earliest five cutoffs and scored on the three most "
-            f"recent, which the fit never saw. On that held-out sample it made things worse: "
-            f"coverage fell from {raw_cov_test:.0f}% to {cal_cov_test:.0f}%. The fitted period ran "
-            f"wider than nominal, so the correction narrowed the band, and the later period did not "
-            f"behave the same way. That is a negative result and it is reported as one.")
-    else:
-        cal_verdict = (
-            f"The correction is fitted on the earliest five cutoffs and scored on the three most "
-            f"recent, which the fit never saw. On that held-out sample coverage was unchanged at "
-            f"{cal_cov_test:.0f}%, so the correction bought committed width and no accuracy.")
     firm_share_all = (firm_t.p50.to_numpy() / t.p50.to_numpy())
     months_half_firm = int((firm_share_all >= 0.5).sum())
 
@@ -474,7 +461,7 @@ def main() -> None:
         "blend": fig_blend(orders),
         "scenario": fig_scenario(monthly),
         "lookback": fig_lookback(lookback),
-        "coverage": fig_coverage(cov),
+        "coverage": fig_coverage(by_h),
     }
     html = {k: v.to_html(full_html=False, include_plotlyjs=("cdn" if k == "forward" else False),
                          config={"displayModeBar": False, "responsive": True})
@@ -589,7 +576,7 @@ def main() -> None:
       <tr>
         <td class="who-role">Supply chain planning<span>owns the plan</span></td>
         <td class="q">Can I commit against this plan, and where do I put a small team of planners?</td>
-        <td><a href="#sCAL">Calibration and bias</a>, and <a href="#s2">slip by market</a></td>
+        <td><a href="#sCAL">Coverage and bias</a>, and <a href="#s2">slip by market</a></td>
       </tr>
       <tr>
         <td class="who-role">Global steel sourcing<span>consumes the number</span></td>
@@ -693,17 +680,27 @@ def main() -> None:
   <p class="note">A region with persistent bias is one where the realization rate can be measured
   rather than chosen. Cumulative bias is the quantity that sets it, and it is also what downstream
   functions are already correcting for informally.</p>
+  <p class="lede" style="margin-top:26px">The same question asked of the interval itself. Standing
+  at each of {n_cutoffs} past month-ends, forecasting forward using only what was known then, and
+  checking how often the outcome fell inside the stated range.</p>
   {html['coverage']}
-  <p class="note">Walk-forward test. The stated 80% interval contained the outcome
-  {raw_cov_all:.0f}% of the time across all cutoffs. Of the misses, {miss_high} fell above the
-  interval and {miss_low} below.</p>
-  <p class="note">{cal_verdict}</p>
-  <p class="note">What this actually shows is the limit of the sample. Eight cutoffs over six
-  months give {n_cal}+{n_test} observations, but they cover only {n_months} distinct outcome months,
-  because overlapping windows score the same month more than once. A correction estimated from
-  that cannot be expected to generalise, and the honest read is that the test says more about how
-  much history you need than about whether the correction works. Two years of retained forecasts
-  is roughly the minimum for this layer to mean anything.</p>
+  <p class="note">Across {n_obs} month-forecasts the stated 80% interval contained the outcome
+  {cov_all:.0f}% of the time, and the stated 50% interval {cov_50:.0f}%. {miss_high} misses fell
+  above the range and {miss_low} below. The interval is wider than it needs to be rather than
+  overconfident, which is the safer direction but still means committed material is being held
+  against uncertainty that is not there.</p>
+  <p class="note">The near months are the weak ones. Month +{worst_h} covers {worst_h_cov:.0f}%
+  against {best_h:.0f}% further out, which is the opposite of what most people expect and is worth
+  knowing before anyone commits against month one.</p>
+  <p class="note"><strong>No correction is applied to these intervals, deliberately.</strong>
+  Adjusting an interval to hit its stated coverage is a standard technique and I built it, then
+  took it out. {n_cutoffs} cutoffs over six months produce {n_obs} observations but only
+  {n_months} distinct outcome months, because overlapping windows score the same month repeatedly.
+  Split across six forecast horizons that leaves about five points each, and the arithmetic needs
+  at least six to construct an 80% bound at all, so what comes out is the range of five points
+  wearing the label. It would have looked like method and meant nothing. Roughly two years of
+  retained forecasts is the point at which it starts to, which is the same prerequisite as
+  everything else on this page.</p>
 </section>
 
 <section id="sEXC">
@@ -738,7 +735,7 @@ def main() -> None:
 
 <footer>
   Built from a project-level simulation with market-specific schedule slip, a Monte Carlo over the
-  open order book, and split-conformal interval calibration. Python, pandas, NumPy, Plotly.
+  open order book, and a walk-forward test of the intervals. Python, pandas, NumPy, Plotly.
   Colours and type follow Nextpower's published web styling. Prepared by Brendan Meara on
   synthetic data; not a Nextpower document.
 </footer>

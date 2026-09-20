@@ -19,13 +19,13 @@ Three layers, deliberately separated so the swappable one is obvious:
                      sum is not the sum of P90s, and summing per-order worst cases
                      overstates portfolio exposure badly.
 
-  3. CALIBRATION     conformal-style coverage check. Ignores what the model claims
-                     about its own uncertainty and measures what actually landed
-                     inside the stated interval out of sample.
+  3. COVERAGE        walk-forward test of the intervals. Ignores what the model claims
+                     about its own uncertainty and measures how often the outcome
+                     actually fell inside the stated range.
 
 Outputs to ./data:
     mc_monthly.csv    per-month material requirement quantiles, total and by region
-    mc_coverage.csv   calibration: stated interval vs realised coverage
+    mc_coverage.csv   one row per scored forecast: stated interval vs what happened
     mc_summary.txt    headline numbers
 """
 
@@ -274,79 +274,45 @@ def coverage_check(orders: pd.DataFrame, cutoffs, horizon: int = 6,
     return df
 
 
-def conformal_split(cov: pd.DataFrame, n_cal_cutoffs: int, alpha: float = 0.20):
-    """Split conformal with a genuine holdout, and signed rather than symmetric.
+def summarise_coverage(cov: pd.DataFrame):
+    """Measure whether the stated interval is honest. Do not try to correct it.
 
-    Two things this fixes.
+    An earlier version fitted a conformal multiplier here. It was removed, and the
+    reason is worth keeping in the file. Eight cutoffs over six months give 48
+    observations, but overlapping windows mean they cover only about 13 distinct
+    outcome months. Splitting those across six forecast horizons leaves roughly five
+    per horizon, and split conformal needs ceil((n+1)(1-alpha)) <= n to construct an
+    80% bound at all. At n=5 that is 6 <= 5, false, so the upper rank silently clips
+    to the sample maximum and what gets produced is the range of five points wearing
+    the label "80%". Correcting an interval needs materially more retained history
+    than this, which is the point the artifact makes anyway.
 
-    Holdout: fitting the multiplier on the same points that then score it makes the
-    reported coverage a restatement of the chosen rank. With n=48 and the 80th
-    percentile rank, at least 40 of 48 land inside by construction, so "83%" is
-    arithmetic, not a result. Here the earliest cutoffs calibrate and the latest
-    are scored, so the reported number is out of sample.
-
-    Signed: a symmetric p50 +/- q*spread band cannot correct a centre that is off.
-    Scoring the signed residual and taking the lower and upper tails separately
-    lets the correction be asymmetric, which is what a one-sided miss needs.
+    Measuring coverage is still worth doing and needs no such machinery.
     """
     cov = cov.copy()
     cov["offset"] = ((cov.month.dt.year - cov.cutoff.dt.year) * 12
                      + (cov.month.dt.month - cov.cutoff.dt.month))
-    cutoffs = sorted(cov.cutoff.unique())
-    cal_cut = cutoffs[:n_cal_cutoffs]
-    cov["split"] = np.where(cov.cutoff.isin(cal_cut), "calibration", "test")
-    cal = cov[cov.split == "calibration"]
-
-    def fit(sub):
-        sp = (sub.p90 - sub.p10).replace(0, np.nan)
-        s = np.sort(((sub.actual - sub.p50) / sp).dropna().to_numpy())
-        n = len(s)
-        if n == 0:
-            return 0.0, 0.0, 0
-        k_lo = max(int(np.ceil((n + 1) * (alpha / 2))), 1) - 1
-        k_hi = min(int(np.ceil((n + 1) * (1 - alpha / 2))), n) - 1
-        return float(s[k_lo]), float(s[k_hi]), n
-
-    # Pooled fit, kept for comparison.
-    q_lo, q_hi, n_cal = fit(cal)
-
-    # Per-horizon fit. The residual is organised by how far ahead the forecast
-    # reaches, not by geography, so one multiplier across all horizons cancels
-    # opposite biases against each other instead of correcting either.
-    per = {}
-    for off, sub in cal.groupby("offset"):
-        lo, hi, n_off = fit(sub)
-        per[int(off)] = (lo, hi, n_off)
-
-    lo_arr = cov.offset.map(lambda o: per.get(int(o), (q_lo, q_hi, 0))[0]).to_numpy()
-    hi_arr = cov.offset.map(lambda o: per.get(int(o), (q_lo, q_hi, 0))[1]).to_numpy()
-    sp_all = (cov.p90 - cov.p10).to_numpy()
-    cov["cal80_lo"] = cov.p50.to_numpy() + lo_arr * sp_all
-    cov["cal80_hi"] = cov.p50.to_numpy() + hi_arr * sp_all
-    cov["in_80_cal"] = (cov.actual >= cov.cal80_lo) & (cov.actual <= cov.cal80_hi)
-    # what a single pooled multiplier would have done, for the comparison
-    cov["pool80_lo"] = cov.p50 + q_lo * sp_all
-    cov["pool80_hi"] = cov.p50 + q_hi * sp_all
-    cov["in_80_pool"] = (cov.actual >= cov.pool80_lo) & (cov.actual <= cov.pool80_hi)
-
-    test = cov[cov.split == "test"]
     miss = cov[~cov.in_80]
+    by_h = (cov.groupby("offset")
+               .agg(n=("in_80", "size"), covered=("in_80", "mean"),
+                    med_err=("actual", "size"))
+               .reset_index())
+    by_h["covered"] = (by_h["covered"] * 100).round(0)
+    by_h["med_err"] = [float((g.actual - g.p50).median()) for _, g in cov.groupby("offset")]
+
     stats = dict(
-        n_cal=n_cal, n_test=len(test),
-        q_lo=q_lo, q_hi=q_hi,
-        raw_cov_test=float(test.in_80.mean() * 100),
-        cal_cov_test=float(test.in_80_cal.mean() * 100),
-        pool_cov_test=float(test.in_80_pool.mean() * 100),
-        raw_cov_all=float(cov.in_80.mean() * 100),
-        # the raw band is p90-p10, i.e. 1.0 spreads. Dividing by the nominal
-        # coverage instead of the band width overstated this by 25%.
-        width_ratio=float(q_hi - q_lo),
-        centre_shift=float((q_hi + q_lo) / 2),
-        miss_low_offsets=sorted({int(o) for o in miss[miss.actual < miss.p10].offset}),
-        miss_high_offsets=sorted({int(o) for o in miss[miss.actual > miss.p90].offset}),
-        per_horizon={k: (round(v[0], 3), round(v[1], 3), v[2]) for k, v in per.items()},
+        n_obs=len(cov),
+        n_months=int(cov.month.nunique()),
+        n_cutoffs=int(cov.cutoff.nunique()),
+        cov_all=float(cov.in_80.mean() * 100),
+        cov_50=float(cov.in_50.mean() * 100),
+        miss_high=int((miss.actual > miss.p90).sum()),
+        miss_low=int((miss.actual < miss.p10).sum()),
+        worst_h=int(by_h.loc[by_h.covered.idxmin(), "offset"]),
+        worst_h_cov=float(by_h.covered.min()),
+        best_h_cov=float(by_h.covered.max()),
     )
-    return cov, stats
+    return cov, stats, by_h
 
 
 def main() -> None:
@@ -432,51 +398,34 @@ def main() -> None:
                for k in (14, 13, 12, 11, 10, 9, 8, 7)]
     cov = coverage_check(orders, cutoffs)
 
-    stats = {}
+    stats, by_h = {}, pd.DataFrame()
     if not cov.empty:
-        cov, stats = conformal_split(cov, n_cal_cutoffs=5)
-        miss = cov[~cov.in_80]
-        stats["miss_high"] = int((miss.actual > miss.p90).sum())
-        stats["miss_low"] = int((miss.actual < miss.p10).sum())
+        cov, stats, by_h = summarise_coverage(cov)
         stats["overstatement"] = float(overstatement)
 
-        print("Layer 3  calibration, walk-forward from %d cutoffs" % len(cutoffs))
-        print("  calibrated on the first 5 cutoffs (n=%d), scored on the last 3 (n=%d)"
-              % (stats["n_cal"], stats["n_test"]))
-        print("  raw 80%% interval, all cutoffs:              %.0f%%" % stats["raw_cov_all"])
-        print("  of %d misses, %d were above the high bound, %d below the low"
-              % (len(miss), stats["miss_high"], stats["miss_low"]))
-        sided = abs(stats["miss_high"] - stats["miss_low"]) / max(len(miss), 1)
-        print("  -> %s" % ("error is one-sided; the signed correction shifts the centre"
-                           if sided > 0.5 else
-                           "error is roughly two-sided; the signed correction is close to symmetric"))
-        print("  lower / upper conformal scores:             %+.3f / %+.3f"
-              % (stats["q_lo"], stats["q_hi"]))
-        print("  implied centre shift:                       %+.3f spreads"
-              % stats["centre_shift"])
-        print("  band width vs raw:                          %.2fx" % stats["width_ratio"])
-        print("  HELD OUT raw coverage:                      %.0f%%" % stats["raw_cov_test"])
-        print("  HELD OUT calibrated coverage:               %.0f%%" % stats["cal_cov_test"])
-
-        # apply the calibration to the combined forward view
-        sp = (tot.p90 - tot.p10).to_numpy()
-        cal_lo = tot.p50.to_numpy() + stats["q_lo"] * sp
-        cal_hi = tot.p50.to_numpy() + stats["q_hi"] * sp
-        sel = (mc.scope == "TOTAL") & (mc.layer == "all")
-        mc.loc[sel, "cal80_lo"] = cal_lo
-        mc.loc[sel, "cal80_hi"] = cal_hi
+        print("Layer 3  does the stated interval hold up, walk-forward from %d cutoffs"
+              % stats["n_cutoffs"])
+        print("  %d month-forecasts, covering %d distinct outcome months"
+              % (stats["n_obs"], stats["n_months"]))
+        print("  stated 80%% interval contained the outcome: %.0f%%" % stats["cov_all"])
+        print("  stated 50%% interval:                       %.0f%%" % stats["cov_50"])
+        print("  misses: %d above the high bound, %d below the low"
+              % (stats["miss_high"], stats["miss_low"]))
+        print()
+        print("  coverage by how far ahead the forecast reaches:")
+        for _, r in by_h.iterrows():
+            print("    month +%d: %d forecasts, %3.0f%% covered, median error $%+.1fM"
+                  % (r.offset, r.n, r.covered, r.med_err / 1e6))
+        print()
+        print("  No correction is applied. Fitting one needs more retained history than")
+        print("  %d distinct months can support; see summarise_coverage for the arithmetic."
+              % stats["n_months"])
 
     cov.to_csv(os.path.join(DATA, "mc_coverage.csv"), index=False)
     mc.to_csv(os.path.join(DATA, "mc_monthly.csv"), index=False)
     if stats:
-        print()
-        print("  forward view, first 3 months, raw vs calibrated 80%% ($M):")
-        for j in range(3):
-            print("    %s   raw %5.1f - %5.1f     calibrated %5.1f - %5.1f"
-                  % (tot.month.iloc[j].date(),
-                     tot.p10.iloc[j] / 1e6, tot.p90.iloc[j] / 1e6,
-                     cal_lo[j] / 1e6, cal_hi[j] / 1e6))
         pd.Series(stats).to_csv(os.path.join(DATA, "mc_stats.csv"), header=False)
+        by_h.to_csv(os.path.join(DATA, "mc_coverage_by_horizon.csv"), index=False)
 
     with open(os.path.join(DATA, "mc_summary.txt"), "w") as f:
         f.write("SYNTHETIC DATA - demonstrates method only\n\n")
@@ -486,11 +435,12 @@ def main() -> None:
         f.write(show.to_string(index=False))
         f.write("\n\nsum of per-region P90 overstates portfolio P90 by %.1f%%\n" % overstatement)
         if stats:
-            f.write("held-out raw coverage: %.0f%%\n" % stats["raw_cov_test"])
-            f.write("held-out calibrated coverage: %.0f%%\n" % stats["cal_cov_test"])
-            f.write("conformal q_lo/q_hi: %+.4f / %+.4f\n" % (stats["q_lo"], stats["q_hi"]))
-            f.write("band width vs raw: %.3f\n" % stats["width_ratio"])
-    print("\nwrote mc_monthly.csv, mc_coverage.csv, mc_summary.txt")
+            f.write("stated 80%% interval realised coverage: %.0f%% over %d forecasts, "
+                    "%d distinct months\n"
+                    % (stats["cov_all"], stats["n_obs"], stats["n_months"]))
+            f.write("weakest horizon: month +%d at %.0f%%\n"
+                    % (stats["worst_h"], stats["worst_h_cov"]))
+    print("\nwrote mc_monthly.csv, mc_coverage.csv, mc_coverage_by_horizon.csv, mc_summary.txt")
 
 
 if __name__ == "__main__":
