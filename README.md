@@ -52,6 +52,25 @@ model claims about its own uncertainty and measures what actually fell inside th
 interval. In this run the raw 80% interval covered 62% of months, conformal prescribed
 widening by 1.53x, and calibrated coverage came to 83%.
 
+## The Excel workbook
+
+`SOP_data_and_calculations.xlsx` carries the same analysis in the form most planning
+teams actually work in, and exists so the method can be audited without reading
+Python. Ten tabs, from the raw order book through every derived field and aggregate
+to the model outputs.
+
+Everything Excel can compute is a live formula against the raw tab, not a pasted
+value: material committed, schedule slip, status and material at risk per order;
+SUMIFS aggregates for bookings, conversions, backlog and book-to-bill; array
+percentiles for the slip distributions; the lookback with running bias; and the
+commitment scenarios. Two tabs are marked as model output, because 4,000 simulations
+across 895 orders and a walk-forward conformal calibration are not things to do in a
+spreadsheet.
+
+The Excel figures reconcile to the Python ones exactly. Slip P90 by market comes out
+1.76, 3.35, 7.40, 4.08, 9.82 and 3.56 months in both, and the conformal widening
+factor is 1.47 in both.
+
 ## Running it
 
 ```

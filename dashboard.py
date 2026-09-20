@@ -160,27 +160,53 @@ def fig_forward(mc: pd.DataFrame) -> go.Figure:
 
 
 def fig_region_bands(mc: pd.DataFrame) -> go.Figure:
-    fig = go.Figure()
-    scopes = dict(REGION_COLORS)
-    scopes["India (in APAC)"] = "#e0857f"
-    for region, color in scopes.items():
+    """Small multiples. North America is roughly 69% of volume, so on one shared
+    axis it flattens the other three into unreadable lines at the bottom. Each
+    panel gets its own scale; the cost is that magnitudes are not comparable by
+    eye across panels, which is why the axis maximum is printed on each."""
+    order = ["North America", "EMEA", "APAC", "LATAM"]
+    fig = make_subplots(rows=2, cols=2, subplot_titles=order,
+                        horizontal_spacing=0.09, vertical_spacing=0.16)
+    for i, region in enumerate(order):
+        rr, cc = i // 2 + 1, i % 2 + 1
         r = mc[(mc.scope == region) & (mc.layer == "all")].sort_values("month")
         if r.empty:
             continue
-        dash = "dot" if region.startswith("India") else "solid"
-        fig.add_trace(go.Scatter(x=V(r.month), y=V(r.p50 / 1e6), mode="lines",
-                                 line=dict(color=color, width=2, dash=dash),
-                                 name=region,
-                                 hovertemplate=region + ": %{y:.1f}M<extra></extra>"))
-        if dash == "solid":
-            fig.add_trace(go.Scatter(
-                x=list(V(r.month)) + list(V(r.month))[::-1],
-                y=list(V(r.p90 / 1e6)) + list(V(r.p10 / 1e6))[::-1],
-                fill="toself", fillcolor=hex_to_rgba(color, 0.13),
-                line=dict(width=0), showlegend=False,
-                hoverinfo="skip", name=region))
-    fig.update_yaxes(title_text="$M of material")
-    return base_layout(fig, 380)
+        color = REGION_COLORS[region]
+        fig.add_trace(go.Scatter(
+            x=list(V(r.month)) + list(V(r.month))[::-1],
+            y=list(V(r.p90 / 1e6)) + list(V(r.p10 / 1e6))[::-1],
+            fill="toself", fillcolor=hex_to_rgba(color, 0.15),
+            line=dict(width=0), showlegend=False, hoverinfo="skip"),
+            row=rr, col=cc)
+        fig.add_trace(go.Scatter(
+            x=V(r.month), y=V(r.p50 / 1e6), mode="lines",
+            line=dict(color=color, width=2.2), showlegend=False,
+            hovertemplate=region + ": %{y:.1f}M<extra></extra>"), row=rr, col=cc)
+        if region == "APAC":
+            ind = mc[(mc.scope == "India (in APAC)") &
+                     (mc.layer == "all")].sort_values("month")
+            if not ind.empty:
+                fig.add_trace(go.Scatter(
+                    x=V(ind.month), y=V(ind.p50 / 1e6), mode="lines",
+                    line=dict(color=INK, width=1.6, dash="dot"),
+                    showlegend=False,
+                    hovertemplate="India: %{y:.1f}M<extra></extra>"), row=rr, col=cc)
+    fig.update_yaxes(title_text="$M", rangemode="tozero", gridcolor="#ededed",
+                     zeroline=False, linecolor=BORDER)
+    fig.update_xaxes(showgrid=False, linecolor=BORDER, ticks="outside",
+                     tickcolor=BORDER, dtick="M3", tickformat="%b<br>%Y")
+    fig.update_layout(
+        height=520, margin=dict(l=56, r=24, t=34, b=40),
+        plot_bgcolor=PLOT_BG, paper_bgcolor=PLOT_BG,
+        font=dict(family=FONT, size=11, color=INK),
+        showlegend=False, hovermode="closest")
+    for a in fig.layout.annotations:
+        a.font.size = 12
+        a.font.color = INK
+        a.x = a.x - 0.03
+        a.xanchor = "left"
+    return fig
 
 
 def fig_slip(orders: pd.DataFrame) -> go.Figure:
@@ -568,7 +594,9 @@ def main() -> None:
 
 <section id="s2c">
   <h2>2c &nbsp;The same requirement, split by region</h2>
-  <p class="lede">Forward material requirement by region, with India shown dotted inside APAC.</p>
+  <p class="lede">Forward material requirement by region, with India dotted inside the APAC panel.
+  Each region is on its own scale, because North America is roughly 69% of volume and flattens the
+  other three when they share an axis. Compare shape and band width across panels, not height.</p>
   {html['regions']}
   <p class="note">Quantiles do not add. Summing the four regional P90s gives a figure about 15%
   above the portfolio P90, because the regions do not all run late in the same month. The
