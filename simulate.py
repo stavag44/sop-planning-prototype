@@ -89,8 +89,11 @@ def build_orders() -> pd.DataFrame:
                 mw = float(np.round(RNG.lognormal(mean=2.6, sigma=0.75), 1))
                 value = mw * cfg["asp"]
 
-                # promised lead time from booking to delivery, in months
-                promised = int(RNG.integers(5, 12))
+                # Promised lead time from booking to delivery, in months. Drawn from
+                # a gamma rather than a uniform: a uniform 5-11 puts a hard floor at
+                # month 5, which makes "months fully firm" a readout of the parameter
+                # rather than a property of the book.
+                promised = int(np.clip(round(RNG.gamma(4.0, 2.0)), 1, 24))
                 expected = booked + pd.DateOffset(months=promised)
 
                 # schedule slip, in months. Gamma-shaped: mostly small, long right tail.
@@ -101,7 +104,10 @@ def build_orders() -> pd.DataFrame:
                     slip = float(RNG.gamma(shape, scale))
                 else:
                     slip = 0.0
-                slip = float(np.clip(slip, 0, 18))
+                # Ceiling set well clear of the tail. At 18 the India P90 landed on
+                # the bound itself, which makes a reported quantile a readout of the
+                # clip rather than of the distribution.
+                slip = float(np.clip(slip, 0, 36))
 
                 cancelled = bool(RNG.random() < cfg["cancel"])
                 actual = expected + pd.DateOffset(months=int(round(slip)))

@@ -192,6 +192,19 @@ def fig_region_bands(mc: pd.DataFrame) -> go.Figure:
                     line=dict(color=INK, width=1.6, dash="dot"),
                     showlegend=False,
                     hovertemplate="India: %{y:.1f}M<extra></extra>"), row=rr, col=cc)
+    # Print each panel's ceiling. Four independent scales with nothing naming them
+    # invites reading a small region as comparable in size to a large one.
+    for i, region in enumerate(order):
+        rr, cc = i // 2 + 1, i % 2 + 1
+        r = mc[(mc.scope == region) & (mc.layer == "all")]
+        if r.empty:
+            continue
+        top = float(r.p90.max()) / 1e6
+        fig.add_annotation(text="scale to $%.0fM" % top, showarrow=False,
+                           xref=f"x{'' if i == 0 else i + 1} domain",
+                           yref=f"y{'' if i == 0 else i + 1} domain",
+                           x=0.97, y=0.97, xanchor="right", yanchor="top",
+                           font=dict(size=9.5, color=MUTED))
     fig.update_yaxes(title_text="$M", rangemode="tozero", gridcolor="#ededed",
                      zeroline=False, linecolor=BORDER)
     fig.update_xaxes(showgrid=False, linecolor=BORDER, ticks="outside",
@@ -219,7 +232,10 @@ def fig_slip(orders: pd.DataFrame) -> go.Figure:
         s = live[live.market == market].slip_months
         fig.add_trace(go.Box(
             y=V(s), name=market, marker_color=MARKET_COLORS.get(market, MUTED),
-            boxpoints=False, line=dict(width=1.6),
+            # Show the outliers. With boxpoints off, the whiskers are 1.5x IQR, so
+            # the long tails the caption cites appear nowhere on the chart.
+            boxpoints="outliers", marker=dict(size=3, opacity=0.45),
+            line=dict(width=1.6),
             hovertemplate=market + "<br>median %{median:.1f} mo<extra></extra>"))
     fig.update_yaxes(title_text="schedule slip, months")
     return base_layout(fig, 360, legend=False)
@@ -246,6 +262,9 @@ def fig_blend(orders: pd.DataFrame) -> go.Figure:
                          text=[f"{v:.1f}" for v in vals], textposition="outside",
                          hovertemplate="%{y}: P90 %{x:.1f} months<extra></extra>",
                          name="market"))
+    # One legend entry for the marker type, not per region. Naming it after a single
+    # region labelled the other region's diamonds with the wrong region.
+    first = True
     for region in ["EMEA", "APAC"]:
         members = [m for r, m, _ in rows if r == region]
         if not members:
@@ -254,8 +273,9 @@ def fig_blend(orders: pd.DataFrame) -> go.Figure:
             x=V([float(rg[region])] * len(members)), y=members, mode="markers",
             marker=dict(symbol="diamond", size=11, color="#22262c",
                         line=dict(color="#fff", width=1.5)),
-            name=f"{region} blended", showlegend=(region == "EMEA"),
+            name="blended regional P90", legendgroup="blend", showlegend=first,
             hovertemplate=region + " blended: P90 %{x:.1f} months<extra></extra>"))
+        first = False
     fig.update_xaxes(title_text="P90 schedule slip, months")
     fig = base_layout(fig, 340)
     fig.update_layout(margin=dict(l=130, r=44, t=30, b=44), hovermode="closest")
@@ -289,7 +309,11 @@ def fig_scenario(monthly: pd.DataFrame) -> go.Figure:
                                     currentvalue=dict(prefix="backlog realization: ",
                                                       font=dict(size=13, color=NAVY)),
                                     steps=steps)])
-    fig.update_yaxes(title_text="$M of material committed")
+    # Fix the axis across all scenarios. Without this Plotly autoranges to whichever
+    # rate is selected, so the bars occupy the same height at 55% as at 100% and the
+    # slider appears to do nothing but relabel the axis.
+    fig.update_yaxes(title_text="$M of material committed",
+                     range=[0, float(base.max()) * 1.12])
     fig = base_layout(fig, 430, legend=False)
     fig.update_layout(margin=dict(l=56, r=24, t=16, b=90))
     return fig
@@ -392,9 +416,29 @@ def main() -> None:
     spread_last = (t.p90.iloc[-1] - t.p10.iloc[-1]) / 1e6
     raw_cov = cov.in_80.mean() * 100
     cal_cov = cov.in_80_cal.mean() * 100 if "in_80_cal" in cov else float("nan")
-    widen = ((cov.cal80_hi - cov.cal80_lo) / (cov.p90 - cov.p10)).mean() if "cal80_hi" in cov else 1.0
+    stats = pd.read_csv(os.path.join(DATA, "mc_stats.csv"), header=None,
+                        index_col=0).squeeze("columns").to_dict()
+    widen = float(stats["width_ratio"])
+    raw_cov_all = float(stats["raw_cov_all"])
+    raw_cov_test = float(stats["raw_cov_test"])
+    cal_cov_test = float(stats["cal_cov_test"])
+    n_cal, n_test = int(stats["n_cal"]), int(stats["n_test"])
+    miss_high, miss_low = int(stats["miss_high"]), int(stats["miss_low"])
+    overstatement = float(stats["overstatement"])
+
     open_material = monthly[monthly.month == monthly.month.max()].committed_material.sum()
-    at_risk = exc.material_at_risk.sum()
+
+    # Period-matched to open_material: material on orders that are still open at the
+    # cutoff and have slipped, not every exception across all 24 months. The two
+    # tiles sit side by side, so a reader will read them as a ratio.
+    cutoff = orders.booked_month.max()
+    open_book = orders[(orders.booked_month <= cutoff) & (~orders.cancelled)
+                       & ((orders.actual_conversion.isna())
+                          | (orders.actual_conversion > cutoff))]
+    at_risk = open_book[open_book.slip_months >= 2].material_committed.sum()
+
+    firm_share_all = (firm_t.p50.to_numpy() / t.p50.to_numpy())
+    months_half_firm = int((firm_share_all >= 0.5).sum())
 
     live = orders[~orders.cancelled]
     p90_market = live.groupby("market").slip_months.quantile(0.9)
@@ -508,9 +552,10 @@ def main() -> None:
 
 <div class="synthetic">
   <strong>Synthetic data.</strong> The four region names and the North America revenue weighting
-  are taken from Nextpower's public filings and public role titles. Every project, date and dollar
-  figure below is generated to demonstrate a method. Nothing here represents the company's actual
-  business, and this is not a Nextpower document.
+  are taken from Nextpower's public filings and public role titles, and the material rate is the
+  one used in the case study I was sent. Every project, date and dollar figure below is generated
+  to demonstrate a method. Nothing here represents the company's actual business, and this is not
+  a Nextpower document.
 </div>
 
 <div class="decisions">
@@ -523,24 +568,24 @@ def main() -> None:
       <tr>
         <td class="who-role">Supply chain planning<span>owns the plan</span></td>
         <td class="q">Can I commit against this plan, and where do I put a small team of planners?</td>
-        <td><a href="#s4">Calibration and bias</a>, and <a href="#s2">slip by market</a></td>
+        <td><a href="#sCAL">Calibration and bias</a>, and <a href="#s2">slip by market</a></td>
       </tr>
       <tr>
         <td class="who-role">Global steel sourcing<span>consumes the number</span></td>
         <td class="q">How much coil do I commit, for which months, and where is optionality worth
         paying for rather than committing firm?</td>
-        <td><a href="#s1">Requirement as a range</a>, and <a href="#s2c">the same split by region</a></td>
+        <td><a href="#s1">Requirement as a range</a>, and <a href="#sPANEL">the same split by region</a></td>
       </tr>
       <tr>
         <td class="who-role">Regional supply chain<span>lives with the consequence</span></td>
         <td class="q">Does the global number represent my region, and what do I escalate this month?</td>
-        <td><a href="#s2b">Market against regional blend</a>, and <a href="#s5">the exception list</a></td>
+        <td><a href="#sBLEND">Market against regional blend</a>, and <a href="#sEXC">the exception list</a></td>
       </tr>
       <tr>
         <td class="who-role">Supply chain leadership<span>answers to finance</span></td>
         <td class="q">How much cash is committed against backlog that may not convert, and who
         chose that number?</td>
-        <td><a href="#s3">Realization as a control</a></td>
+        <td><a href="#sSCEN">Realization as a control</a></td>
       </tr>
     </tbody>
   </table>
@@ -551,10 +596,10 @@ def main() -> None:
     <div class="l">material against open backlog</div></div>
   <div class="kpi"><div class="v">${nxt.p50/1e6:,.0f}M</div>
     <div class="l">needed next month</div></div>
-  <div class="kpi"><div class="v">{fully_firm} months</div>
-    <div class="l">covered by orders already booked</div></div>
+  <div class="kpi"><div class="v">{months_half_firm} months</div>
+    <div class="l">at least half covered by booked orders</div></div>
   <div class="kpi"><div class="v">${at_risk/1e6:,.0f}M</div>
-    <div class="l">material on orders that moved</div></div>
+    <div class="l">of that, on open orders that have slipped</div></div>
 </div>
 
 <section id="s1">
@@ -575,13 +620,15 @@ def main() -> None:
   <p class="lede">Schedule slip from booked date to delivery, by market, across
   {len(orders):,} orders.</p>
   {html['slip']}
-  <p class="note">India is tracked separately because its distribution sits well outside the
-  others, at a P90 of {p90_market['India']:.1f} months against
+  <p class="note">The market-level structure here was specified when the data was generated, so
+  this is a recovery test: the question is whether market-level aggregation recovers a structure
+  that a regional average destroys. India is carried separately because its distribution sits well
+  outside the others, at a P90 of {p90_market['India']:.1f} months against
   {p90_market['US / Canada']:.1f} for US and Canada.</p>
 </section>
 
-<section id="s2b">
-  <h2>2b &nbsp;Why the regional average is the wrong unit</h2>
+<section id="sBLEND">
+  <h2>3 &nbsp;Why the regional average is the wrong unit</h2>
   <p class="lede">The same P90s, grouped by region, with the blended regional figure marked. In the
   two regions that contain more than one market, the regional number describes neither half of it.</p>
   {html['blend']}
@@ -592,19 +639,23 @@ def main() -> None:
   figure runs early on one market and late on the other.</p>
 </section>
 
-<section id="s2c">
-  <h2>2c &nbsp;The same requirement, split by region</h2>
+<section id="sPANEL">
+  <h2>4 &nbsp;The same requirement, split by region</h2>
   <p class="lede">Forward material requirement by region, with India dotted inside the APAC panel.
   Each region is on its own scale, because North America is roughly 69% of volume and flattens the
   other three when they share an axis. Compare shape and band width across panels, not height.</p>
   {html['regions']}
-  <p class="note">Quantiles do not add. Summing the four regional P90s gives a figure about 15%
-  above the portfolio P90, because the regions do not all run late in the same month. The
-  difference is material that would be bought and not needed.</p>
+  <p class="note">Quantiles do not add. Summing the four regional P90s gives a figure
+  {overstatement:.1f}% above the portfolio P90, because the regions do not all run late in the same
+  month. The difference is material that would be bought and not needed. The size of that gap
+  depends on an assumption worth stating: slip is drawn independently per order, with no shared
+  shock. Real slip correlates through tariffs, interconnection queues and financing conditions, and
+  under positive correlation this benefit shrinks. A production model would estimate that
+  correlation rather than assume it away.</p>
 </section>
 
-<section id="s3">
-  <h2>3 &nbsp;Realization rate as a control</h2>
+<section id="sSCEN">
+  <h2>5 &nbsp;Realization rate as a control</h2>
   <p class="lede">Material committed against open backlog at a given realization assumption.
   Move the slider.</p>
   {html['scenario']}
@@ -613,8 +664,8 @@ def main() -> None:
   dates on the projects that hold.</p>
 </section>
 
-<section id="s4">
-  <h2>4 &nbsp;Was the forecast right, and by how much</h2>
+<section id="sCAL">
+  <h2>6 &nbsp;Was the forecast right, and by how much</h2>
   <p class="lede">Conversion lookback. What was expected to convert each month against what
   actually did, by region, with cumulative bias.</p>
   {html['lookback']}
@@ -622,14 +673,22 @@ def main() -> None:
   rather than chosen. Cumulative bias is the quantity that sets it, and it is also what downstream
   functions are already correcting for informally.</p>
   {html['coverage']}
-  <p class="note">Walk-forward test across {len(cov)} month-forecasts. The raw model was
-  overconfident: a stated 80% interval contained the outcome {raw_cov:.0f}% of the time. Conformal
-  calibration measured the gap and widened the interval by {widen:.2f}x, bringing realised coverage
-  to {cal_cov:.0f}%.</p>
+  <p class="note">Walk-forward test. The stated 80% interval contained the outcome
+  {raw_cov_all:.0f}% of the time across all cutoffs, so it runs mildly overconfident. Of the misses,
+  {miss_high} fell above the interval and {miss_low} below, which is close to two-sided, so the
+  correction barely shifts the centre and mostly widens: {widen:.2f}x.</p>
+  <p class="note">The important part is how that was tested. The multiplier is fitted on the
+  earliest five cutoffs ({n_cal} month-forecasts) and then scored on the three most recent
+  ({n_test}), which the fit never saw. On that held-out sample the raw interval covered
+  {raw_cov_test:.0f}% and the calibrated interval {cal_cov_test:.0f}%. Widening did not improve
+  held-out coverage here, because the misses in that window fell well outside the band rather than
+  just beyond it. With {n_test} held-out observations that estimate is noisy, and reporting it as a
+  clean improvement would overstate what a sample this size can show. The method is the point: fit
+  the correction on one period, score it on another, and report what came back.</p>
 </section>
 
-<section id="s5">
-  <h2>5 &nbsp;What actually moved</h2>
+<section id="sEXC">
+  <h2>7 &nbsp;What actually moved</h2>
   <p class="lede">Orders that slipped two months or more, or cancelled, ranked by material at
   risk.</p>
   <table>
@@ -648,9 +707,9 @@ def main() -> None:
   <p>None of it works without a record of expected conversion dates. Each order needs the date it
   was expected to convert, recorded when that date was set, and <strong>kept when the date
   moves</strong>. The lookback measures against that record.</p>
-  <p>Those dates already exist in the pipeline. They get overwritten each month instead of
-  retained, so there is nothing to measure against. Keeping them costs very little and has to come
-  before any modeling work.</p>
+  <p>As you described the current process, those dates already exist in the pipeline and get
+  overwritten each month rather than retained, so there is nothing to measure against. If that is
+  right, keeping them costs very little and has to come before any modeling work.</p>
   <p>Without the record, the realization rate is a number someone picks and the interval has no
   tested coverage. Each function downstream then applies its own unstated discount to the plan.
   Measuring bias puts that correction in one place, where all four are working from the same

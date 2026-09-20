@@ -137,7 +137,7 @@ def main() -> None:
         "same repository."))
     ws.cell(row=r + 1, column=1).alignment = Alignment(wrap_text=True, vertical="top")
     ws.merge_cells(start_row=r + 1, start_column=1, end_row=r + 3, end_column=6)
-    ws.cell(row=r + 5, column=1, value="Material rate used throughout").font = lab
+    ws.cell(row=r + 5, column=1, value="Material rate used throughout (from the case study)").font = lab
     ws.cell(row=r + 5, column=3, value=MATERIAL_RATE).number_format = "0%"
 
     # ---------------------------------------------------------------- Raw
@@ -361,7 +361,9 @@ def main() -> None:
                                               values="p50").reset_index()
     band = mc[(mc.scope == "TOTAL") & (mc.layer == "all")].sort_values("month")
     # q80 lands on the calibration tab at a position fixed by its row count
-    q80_ref = f"'MC Calibration'!$C${len(cov) + 11}"
+    _cal_s = 4 + len(cov) + 3
+    q_lo_ref = f"'MC Calibration'!$C${_cal_s + 6}"
+    q_hi_ref = f"'MC Calibration'!$C${_cal_s + 7}"
     header(ws, 4, ["month", "already booked ($)", "not yet booked ($)",
                    "expected total ($)", "low (P10)", "high (P90)",
                    "spread", "calibrated low", "calibrated high", "firm share"],
@@ -380,9 +382,9 @@ def main() -> None:
             c.number_format = "#,##0"
         ws.cell(row=r, column=7, value=f"=F{r}-E{r}").number_format = "#,##0"
         ws.cell(row=r, column=8,
-                value=f"=D{r}-{q80_ref}*G{r}").number_format = "#,##0"
+                value=f"=D{r}+{q_lo_ref}*G{r}").number_format = "#,##0"
         ws.cell(row=r, column=9,
-                value=f"=D{r}+{q80_ref}*G{r}").number_format = "#,##0"
+                value=f"=D{r}+{q_hi_ref}*G{r}").number_format = "#,##0"
         ws.cell(row=r, column=10, value=f"=IF(D{r}=0,\"\",B{r}/D{r})").number_format = "0%"
         for j in range(1, 11):
             ws.cell(row=r, column=j).border = box
@@ -397,60 +399,81 @@ def main() -> None:
     title(ws, "Interval calibration")
     nc = len(cov)
     lastr = 4 + nc
-    header(ws, 4, ["cutoff", "month", "actual ($)", "P10", "P50", "P90",
-                   "spread (P90-P10)", "score", "inside raw 80%",
+    header(ws, 4, ["cutoff", "month", "split", "actual ($)", "P10", "P50", "P90",
+                   "spread (P90-P10)", "signed score", "inside raw 80%",
                    "calibrated low", "calibrated high", "inside calibrated"],
-           [12, 12, 14, 13, 13, 13, 16, 10, 14, 15, 15, 16])
-    ws.cell(row=3, column=8,
-            value="= |actual - P50| / spread, how many interval widths the miss was"
+           [12, 12, 13, 14, 13, 13, 13, 16, 13, 14, 15, 15, 16])
+    ws.cell(row=3, column=9,
+            value="= (actual - P50) / spread, signed, so the correction can be asymmetric"
             ).font = note_font
+    ws.cell(row=3, column=3,
+            value="earliest 5 cutoffs fit the correction; the last 3 only score it"
+            ).font = note_font
+
+    s = lastr + 3
+    # rows_cal starts at s+3; q_lo is its 4th entry and q_hi its 5th
+    q_lo_cell, q_hi_cell = f"$C${s + 6}", f"$C${s + 7}"
     for i in range(nc):
         r = 5 + i
         c0 = cov.iloc[i]
         ws.cell(row=r, column=1, value=c0.cutoff.date()).number_format = "yyyy-mm"
         ws.cell(row=r, column=2, value=c0.month.date()).number_format = "yyyy-mm"
+        ws.cell(row=r, column=3, value=str(c0.split))
         for j, v in enumerate([c0.actual, c0.p10, c0.p50, c0.p90]):
-            ws.cell(row=r, column=3 + j, value=float(v)).number_format = "#,##0"
-        ws.cell(row=r, column=7, value=f"=F{r}-D{r}").number_format = "#,##0"
-        ws.cell(row=r, column=8,
-                value=f"=IF(G{r}=0,\"\",ABS(C{r}-E{r})/G{r})").number_format = "0.000"
-        ws.cell(row=r, column=9, value=f"=IF(AND(C{r}>=D{r},C{r}<=F{r}),1,0)")
-        ws.cell(row=r, column=10, value=f"=E{r}-$C$Q*G{r}").number_format = "#,##0"
-        ws.cell(row=r, column=11, value=f"=E{r}+$C$Q*G{r}").number_format = "#,##0"
-        ws.cell(row=r, column=12, value=f"=IF(AND(C{r}>=J{r},C{r}<=K{r}),1,0)")
-        for j in range(1, 13):
+            ws.cell(row=r, column=4 + j, value=float(v)).number_format = "#,##0"
+        ws.cell(row=r, column=8, value=f"=G{r}-E{r}").number_format = "#,##0"
+        ws.cell(row=r, column=9,
+                value=f"=IF(H{r}=0,\"\",(D{r}-F{r})/H{r})").number_format = "+0.000;-0.000"
+        ws.cell(row=r, column=10, value=f"=IF(AND(D{r}>=E{r},D{r}<=G{r}),1,0)")
+        ws.cell(row=r, column=11, value=f"=F{r}+{q_lo_cell}*H{r}").number_format = "#,##0"
+        ws.cell(row=r, column=12, value=f"=F{r}+{q_hi_cell}*H{r}").number_format = "#,##0"
+        ws.cell(row=r, column=13, value=f"=IF(AND(D{r}>=K{r},D{r}<=L{r}),1,0)")
+        for j in range(1, 14):
             ws.cell(row=r, column=j).border = box
 
-    s = lastr + 2
-    ws.cell(row=s, column=1, value="Conformal calibration").font = sec_font
+    ws.cell(row=s, column=1, value="Conformal calibration, with a holdout").font = sec_font
     ws.cell(row=s + 1, column=1, value=(
-        "Split conformal. Rank the scores, take the one at the 80th position by count, and use it "
-        "as the multiplier on the spread. No distributional assumption; it measures what the model "
-        "actually did against outcomes.")).font = note_font
-    ws.merge_cells(start_row=s + 1, start_column=1, end_row=s + 1, end_column=8)
+        "Fitting the multiplier on the same points that then score it makes the reported coverage "
+        "a restatement of the chosen rank. Here the earliest five cutoffs fit it and the latest "
+        "three score it, so the coverage figure at the bottom is out of sample. The score is "
+        "signed rather than absolute, so the correction can shift the centre as well as widen.")
+        ).font = note_font
+    ws.merge_cells(start_row=s + 1, start_column=1, end_row=s + 1, end_column=9)
 
+    CAL = f"$C$5:$C${lastr}"
+    SCORE = f"$I$5:$I${lastr}"
     rows_cal = [
-        ("observations (n)", f"=COUNT(H5:H{lastr})", "#,##0"),
-        ("rank used  = ROUNDUP((n+1) x 0.80, 0)",
-         f"=MIN(ROUNDUP((C{s+3}+1)*0.8,0),C{s+3})", "#,##0"),
-        ("q80  = that ranked score", f"=SMALL(H5:H{lastr},C{s+4})", "0.000"),
-        ("stated coverage", "=0.8", "0%"),
-        ("raw coverage", f"=AVERAGE(I5:I{lastr})", "0%"),
-        ("calibrated coverage", f"=AVERAGE(L5:L{lastr})", "0%"),
-        ("widening factor  = 2 x q80", f"=2*C{s+5}", "0.00"),
+        ("calibration observations (n)",
+         f'=COUNTIFS({CAL},"calibration")', "#,##0", False),
+        ("lower rank  = ROUNDUP((n+1) x 0.10, 0)",
+         f"=MAX(ROUNDUP((C{s+3}+1)*0.1,0),1)", "#,##0", False),
+        ("upper rank  = ROUNDUP((n+1) x 0.90, 0)",
+         f"=MIN(ROUNDUP((C{s+3}+1)*0.9,0),C{s+3})", "#,##0", False),
+        ("q_lo  = ranked score, calibration rows only",
+         f'=SMALL(IF({CAL}="calibration",{SCORE}),C{s+4})', "+0.000;-0.000", True),
+        ("q_hi  = ranked score, calibration rows only",
+         f'=SMALL(IF({CAL}="calibration",{SCORE}),C{s+5})', "+0.000;-0.000", True),
+        ("band width vs raw  = (q_hi - q_lo) / 0.8",
+         f"=(C{s+7}-C{s+6})/0.8", "0.00", False),
+        ("centre shift  = (q_hi + q_lo) / 2",
+         f"=(C{s+7}+C{s+6})/2", "+0.000;-0.000", False),
+        ("raw coverage, all cutoffs", f"=AVERAGE(J5:J{lastr})", "0%", False),
+        ("HELD OUT raw coverage",
+         f'=AVERAGEIFS(J5:J{lastr},{CAL},"test")', "0%", False),
+        ("HELD OUT calibrated coverage",
+         f'=AVERAGEIFS(M5:M{lastr},{CAL},"test")', "0%", False),
     ]
-    for i, (labeltext, formula, fmt) in enumerate(rows_cal):
+    for i, (labeltext, formula, fmt, is_array) in enumerate(rows_cal):
         r = s + 3 + i
         ws.cell(row=r, column=1, value=labeltext).font = lab
-        c = ws.cell(row=r, column=3, value=formula)
-        c.number_format = fmt
-    q80_cell = f"C{s + 5}"
-    # the calibrated bounds above reference q80; patch the placeholder now that it is placed
-    for i in range(nc):
-        r = 5 + i
-        ws.cell(row=r, column=10, value=f"=E{r}-${q80_cell[0]}${q80_cell[1:]}*G{r}")
-        ws.cell(row=r, column=11, value=f"=E{r}+${q80_cell[0]}${q80_cell[1:]}*G{r}")
-    CAL_Q = f"'MC Calibration'!${q80_cell[0]}${q80_cell[1:]}"
+        ref = f"C{r}"
+        if is_array:
+            ws[ref] = ArrayFormula(ref, formula)
+        else:
+            ws[ref] = formula
+        ws[ref].number_format = fmt
+        if "HELD OUT" in labeltext:
+            ws.cell(row=r, column=1).font = Font(bold=True, size=10, color=ORANGE)
 
     wb.save(OUT)
     print("wrote", OUT)

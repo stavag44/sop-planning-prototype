@@ -1,4 +1,4 @@
-"""
+﻿"""
 Forward Monte Carlo over open backlog.
 
 SYNTHETIC DATA. Demonstrates a method, not Nextpower's business.
@@ -120,9 +120,16 @@ def run_mc(book: pd.DataFrame, model: EmpiricalSlipModel, cutoff: pd.Timestamp,
     total = np.zeros((n_sims, horizon))
     per_scope = {k: np.zeros((n_sims, horizon)) for k in scopes}
 
+    # An order already past due at the cutoff cannot land in the past. Without this
+    # floor a past-due order can draw a near-zero slip, land at or before the cutoff,
+    # match no forecast month, and be dropped from the forward view entirely rather
+    # than deferred. That silently removes material and biases the forecast low.
+    cutoff_key = cutoff.to_period("M").ordinal
+    earliest = cutoff_key + 1
+
     for s in range(n_sims):
         slip = model.sample(book, RNG)
-        landing = base_exp + np.rint(slip).astype(int)
+        landing = np.maximum(base_exp + np.rint(slip).astype(int), earliest)
         for j, mk in enumerate(month_keys):
             hit = landing == mk
             if not hit.any():
@@ -234,6 +241,54 @@ def coverage_check(orders: pd.DataFrame, model: EmpiricalSlipModel,
     return df
 
 
+def conformal_split(cov: pd.DataFrame, n_cal_cutoffs: int, alpha: float = 0.20):
+    """Split conformal with a genuine holdout, and signed rather than symmetric.
+
+    Two things this fixes.
+
+    Holdout: fitting the multiplier on the same points that then score it makes the
+    reported coverage a restatement of the chosen rank. With n=48 and the 80th
+    percentile rank, at least 40 of 48 land inside by construction, so "83%" is
+    arithmetic, not a result. Here the earliest cutoffs calibrate and the latest
+    are scored, so the reported number is out of sample.
+
+    Signed: a symmetric p50 +/- q*spread band cannot correct a centre that is off.
+    Scoring the signed residual and taking the lower and upper tails separately
+    lets the correction be asymmetric, which is what a one-sided miss needs.
+    """
+    cutoffs = sorted(cov.cutoff.unique())
+    cal_cut = cutoffs[:n_cal_cutoffs]
+    cal = cov[cov.cutoff.isin(cal_cut)].copy()
+    test = cov[~cov.cutoff.isin(cal_cut)].copy()
+
+    spread = (cal.p90 - cal.p10).replace(0, np.nan)
+    s = ((cal.actual - cal.p50) / spread).dropna().to_numpy()
+    n = len(s)
+    s = np.sort(s)
+    k_lo = max(int(np.ceil((n + 1) * (alpha / 2))), 1) - 1
+    k_hi = min(int(np.ceil((n + 1) * (1 - alpha / 2))), n) - 1
+    q_lo, q_hi = float(s[k_lo]), float(s[k_hi])
+
+    for d in (cal, test):
+        sp = d.p90 - d.p10
+        d["cal80_lo"] = d.p50 + q_lo * sp
+        d["cal80_hi"] = d.p50 + q_hi * sp
+        d["in_80_cal"] = (d.actual >= d.cal80_lo) & (d.actual <= d.cal80_hi)
+        d["split"] = "calibration" if d is cal else "test"
+
+    out = pd.concat([cal, test], ignore_index=True)
+    stats = dict(
+        n_cal=n, n_test=len(test),
+        q_lo=q_lo, q_hi=q_hi,
+        raw_cov_test=float(test.in_80.mean() * 100),
+        cal_cov_test=float(test.in_80_cal.mean() * 100),
+        raw_cov_all=float(cov.in_80.mean() * 100),
+        width_ratio=float((q_hi - q_lo) / 0.8),   # vs the raw p10-p90 width
+        centre_shift=float((q_hi + q_lo) / 2),
+    )
+    return out, stats
+
+
 def main() -> None:
     orders = pd.read_csv(os.path.join(DATA, "orders.csv"),
                          parse_dates=["booked_month", "expected_conversion",
@@ -308,55 +363,52 @@ def main() -> None:
         naive += np.quantile(draws, 0.90, axis=0)
     portfolio = np.quantile(total, 0.90, axis=0)
     overstatement = (naive.sum() / portfolio.sum() - 1) * 100
-    print("Sum of per-region P90 vs portfolio P90: %.1f%% overstatement"
-          % overstatement)
+    print("Sum of per-region P90 vs portfolio P90: %.1f%% overstatement" % overstatement)
+    print("  (this magnitude is a readout of the independence assumption in the slip")
+    print("   model: orders are drawn i.i.d., with no shared shock)")
     print()
 
     cutoffs = [orders.booked_month.max() - pd.DateOffset(months=k)
                for k in (14, 13, 12, 11, 10, 9, 8, 7)]
     cov = coverage_check(orders, model, cutoffs)
 
-    # conformal correction: measure how wrong the stated interval actually was,
-    # then widen it by the factor that would have achieved nominal coverage.
-    # Split-conformal on a spread-scaled residual.
-    factor_80 = factor_50 = 1.0
+    stats = {}
     if not cov.empty:
-        spread = (cov.p90 - cov.p10).replace(0, np.nan)
-        score = (cov.actual - cov.p50).abs() / spread
-        score = score.dropna()
-        if len(score):
-            n = len(score)
-            k80 = min(int(np.ceil((n + 1) * 0.80)), n) - 1
-            k50 = min(int(np.ceil((n + 1) * 0.50)), n) - 1
-            q80 = float(np.sort(score.to_numpy())[k80])
-            q50 = float(np.sort(score.to_numpy())[k50])
-            # raw interval half-width is (p90-p10)/2, i.e. score of 0.5
-            factor_80 = q80 / 0.5
-            factor_50 = q50 / 0.25
-            cov["cal80_lo"] = cov.p50 - q80 * spread
-            cov["cal80_hi"] = cov.p50 + q80 * spread
-            cov["in_80_cal"] = (cov.actual >= cov.cal80_lo) & (cov.actual <= cov.cal80_hi)
+        cov, stats = conformal_split(cov, n_cal_cutoffs=5)
+        miss = cov[~cov.in_80]
+        stats["miss_high"] = int((miss.actual > miss.p90).sum())
+        stats["miss_low"] = int((miss.actual < miss.p10).sum())
+        stats["overstatement"] = float(overstatement)
 
-    cov.to_csv(os.path.join(DATA, "mc_coverage.csv"), index=False)
-    if not cov.empty:
-        print("Layer 3  calibration, walk-forward from %d cutoffs (n=%d month-forecasts)"
-              % (len(cutoffs), len(cov)))
-        print("  raw 80%% interval realised coverage:        %.0f%%" % (cov.in_80.mean() * 100))
-        print("  raw 50%% interval realised coverage:        %.0f%%" % (cov.in_50.mean() * 100))
-        print("  conformal widening needed for 80%%:         %.2fx" % factor_80)
-        if "in_80_cal" in cov:
-            print("  calibrated 80%% interval coverage:          %.0f%%"
-                  % (cov.in_80_cal.mean() * 100))
+        print("Layer 3  calibration, walk-forward from %d cutoffs" % len(cutoffs))
+        print("  calibrated on the first 5 cutoffs (n=%d), scored on the last 3 (n=%d)"
+              % (stats["n_cal"], stats["n_test"]))
+        print("  raw 80%% interval, all cutoffs:              %.0f%%" % stats["raw_cov_all"])
+        print("  of %d misses, %d were above the high bound, %d below the low"
+              % (len(miss), stats["miss_high"], stats["miss_low"]))
+        sided = abs(stats["miss_high"] - stats["miss_low"]) / max(len(miss), 1)
+        print("  -> %s" % ("error is one-sided; the signed correction shifts the centre"
+                           if sided > 0.5 else
+                           "error is roughly two-sided; the signed correction is close to symmetric"))
+        print("  lower / upper conformal scores:             %+.3f / %+.3f"
+              % (stats["q_lo"], stats["q_hi"]))
+        print("  implied centre shift:                       %+.3f spreads"
+              % stats["centre_shift"])
+        print("  band width vs raw:                          %.2fx" % stats["width_ratio"])
+        print("  HELD OUT raw coverage:                      %.0f%%" % stats["raw_cov_test"])
+        print("  HELD OUT calibrated coverage:               %.0f%%" % stats["cal_cov_test"])
 
         # apply the calibration to the combined forward view
-        tot_spread = (tot.p90 - tot.p10).to_numpy()
-        cal_lo = tot.p50.to_numpy() - (factor_80 * 0.5) * tot_spread
-        cal_hi = tot.p50.to_numpy() + (factor_80 * 0.5) * tot_spread
+        sp = (tot.p90 - tot.p10).to_numpy()
+        cal_lo = tot.p50.to_numpy() + stats["q_lo"] * sp
+        cal_hi = tot.p50.to_numpy() + stats["q_hi"] * sp
         sel = (mc.scope == "TOTAL") & (mc.layer == "all")
         mc.loc[sel, "cal80_lo"] = cal_lo
         mc.loc[sel, "cal80_hi"] = cal_hi
+
+    cov.to_csv(os.path.join(DATA, "mc_coverage.csv"), index=False)
     mc.to_csv(os.path.join(DATA, "mc_monthly.csv"), index=False)
-    if not cov.empty:
+    if stats:
         print()
         print("  forward view, first 3 months, raw vs calibrated 80%% ($M):")
         for j in range(3):
@@ -364,6 +416,7 @@ def main() -> None:
                   % (tot.month.iloc[j].date(),
                      tot.p10.iloc[j] / 1e6, tot.p90.iloc[j] / 1e6,
                      cal_lo[j] / 1e6, cal_hi[j] / 1e6))
+        pd.Series(stats).to_csv(os.path.join(DATA, "mc_stats.csv"), header=False)
 
     with open(os.path.join(DATA, "mc_summary.txt"), "w") as f:
         f.write("SYNTHETIC DATA - demonstrates method only\n\n")
@@ -372,8 +425,11 @@ def main() -> None:
         f.write("next 12 months, material required ($M)\n")
         f.write(show.to_string(index=False))
         f.write("\n\nsum of per-region P90 overstates portfolio P90 by %.1f%%\n" % overstatement)
-        if not cov.empty:
-            f.write("stated 80%% interval realised coverage: %.0f%%\n" % (cov.in_80.mean() * 100))
+        if stats:
+            f.write("held-out raw coverage: %.0f%%\n" % stats["raw_cov_test"])
+            f.write("held-out calibrated coverage: %.0f%%\n" % stats["cal_cov_test"])
+            f.write("conformal q_lo/q_hi: %+.4f / %+.4f\n" % (stats["q_lo"], stats["q_hi"]))
+            f.write("band width vs raw: %.3f\n" % stats["width_ratio"])
     print("\nwrote mc_monthly.csv, mc_coverage.csv, mc_summary.txt")
 
 
