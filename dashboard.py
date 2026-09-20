@@ -99,28 +99,41 @@ def base_layout(fig, height=380, legend=True):
 
 # ---------------------------------------------------------------- 1 + 2
 def fig_forward(mc: pd.DataFrame) -> go.Figure:
-    t = mc[mc.scope == "TOTAL"].sort_values("month")
+    t = mc[(mc.scope == "TOTAL") & (mc.layer == "all")].sort_values("month")
+    firm = mc[(mc.scope == "TOTAL") & (mc.layer == "firm")].sort_values("month")
+    pipe = mc[(mc.scope == "TOTAL") & (mc.layer == "pipeline")].sort_values("month")
     x = t.month
     fig = go.Figure()
+
+    # composition of the median: firm backlog, then bookings not yet placed
+    fig.add_trace(go.Scatter(
+        x=x, y=firm.p50 / 1e6, mode="lines", line=dict(width=0),
+        fill="tozeroy", fillcolor=hex_to_rgba(DARK, 0.55),
+        name="already booked",
+        hovertemplate="already booked: %{y:.1f}M<extra></extra>"))
+    fig.add_trace(go.Scatter(
+        x=x, y=(firm.p50 + pipe.p50) / 1e6, mode="lines", line=dict(width=0),
+        fill="tonexty", fillcolor=hex_to_rgba(ORANGE, 0.45),
+        name="not yet booked",
+        hovertemplate="incl. not yet booked: %{y:.1f}M<extra></extra>"))
+
     if "cal80_hi" in t and t.cal80_hi.notna().any():
-        fig.add_trace(go.Scatter(x=x, y=t.cal80_hi / 1e6, line=dict(width=0),
-                                 name="calibrated 80%", showlegend=False,
-                                 hoverinfo="skip"))
-        fig.add_trace(go.Scatter(x=x, y=t.cal80_lo / 1e6, line=dict(width=0),
-                                 fill="tonexty", fillcolor=BAND,
-                                 name="calibrated 80%",
-                                 hovertemplate="calibrated 80%%: %{y:.1f}M<extra></extra>"))
-    fig.add_trace(go.Scatter(x=x, y=t.p90 / 1e6, line=dict(width=0),
-                             name="raw 80%", showlegend=False, hoverinfo="skip"))
-    fig.add_trace(go.Scatter(x=x, y=t.p10 / 1e6, line=dict(width=0),
-                             fill="tonexty", fillcolor=BAND2, name="raw 80%",
-                             hovertemplate="raw 80%%: %{y:.1f}M<extra></extra>"))
+        fig.add_trace(go.Scatter(
+            x=list(x) + list(x[::-1]),
+            y=list(t.cal80_hi / 1e6) + list(t.cal80_lo[::-1] / 1e6),
+            fill="toself", fillcolor="rgba(17,17,17,0.10)", line=dict(width=0),
+            name="calibrated 80%", hoverinfo="skip"))
+    fig.add_trace(go.Scatter(
+        x=list(x) + list(x[::-1]),
+        y=list(t.p90 / 1e6) + list(t.p10[::-1] / 1e6),
+        fill="toself", fillcolor="rgba(17,17,17,0.16)", line=dict(width=0),
+        name="raw 80%", hoverinfo="skip"))
     fig.add_trace(go.Scatter(x=x, y=t.p50 / 1e6, mode="lines+markers",
-                             line=dict(color=NAVY, width=2.5),
+                             line=dict(color=INK, width=2.5),
                              marker=dict(size=5), name="median",
-                             hovertemplate="median: %{y:.1f}M<extra></extra>"))
-    fig.update_yaxes(title_text="$M of material")
-    return base_layout(fig, 400)
+                             hovertemplate="median total: %{y:.1f}M<extra></extra>"))
+    fig.update_yaxes(title_text="$M of material", rangemode="tozero")
+    return base_layout(fig, 420)
 
 
 def fig_region_bands(mc: pd.DataFrame) -> go.Figure:
@@ -128,7 +141,7 @@ def fig_region_bands(mc: pd.DataFrame) -> go.Figure:
     scopes = dict(REGION_COLORS)
     scopes["India (in APAC)"] = "#e0857f"
     for region, color in scopes.items():
-        r = mc[mc.scope == region].sort_values("month")
+        r = mc[(mc.scope == region) & (mc.layer == "all")].sort_values("month")
         if r.empty:
             continue
         dash = "dot" if region.startswith("India") else "solid"
@@ -318,9 +331,14 @@ def main() -> None:
     cov = pd.read_csv(os.path.join(DATA, "mc_coverage.csv"),
                       parse_dates=["cutoff", "month"])
 
-    t = mc[mc.scope == "TOTAL"].sort_values("month")
+    t = mc[(mc.scope == "TOTAL") & (mc.layer == "all")].sort_values("month")
+    firm_t = mc[(mc.scope == "TOTAL") & (mc.layer == "firm")].sort_values("month")
     nxt = t.iloc[0]
     spread_pct = (nxt.p90 - nxt.p10) / nxt.p50 * 100
+    firm_first = firm_t.p50.iloc[0] / t.p50.iloc[0] * 100
+    firm_last = firm_t.p50.iloc[-1] / t.p50.iloc[-1] * 100
+    spread_first = (t.p90.iloc[0] - t.p10.iloc[0]) / 1e6
+    spread_last = (t.p90.iloc[-1] - t.p10.iloc[-1]) / 1e6
     raw_cov = cov.in_80.mean() * 100
     cal_cov = cov.in_80_cal.mean() * 100 if "in_80_cal" in cov else float("nan")
     widen = ((cov.cal80_hi - cov.cal80_lo) / (cov.p90 - cov.p10)).mean() if "cal80_hi" in cov else 1.0
@@ -492,12 +510,15 @@ def main() -> None:
 
 <section id="s1">
   <h2>1 &nbsp;What to commit, as a range</h2>
-  <p class="lede">Median material requirement by month across the open order book, with an 80%
-  interval. The outer band is the same interval after conformal calibration widened it to match
-  observed accuracy.</p>
+  <p class="lede">Material required by month, in two layers. The dark area is demand from orders
+  already on the books. The orange area is demand from bookings not yet placed. The band is the
+  80% interval on the total, with the outer band showing it after conformal calibration.</p>
   {html['forward']}
-  <p class="note">The width of the band is the safety margin implied by the current order book. It
-  is the quantity a commitment decision is actually made against.</p>
+  <p class="note">The mix changes across the horizon. Next month is {firm_first:.0f}% firm; twelve
+  months out it is {firm_last:.0f}%. That is why the band widens from ${spread_first:.0f}M to
+  ${spread_last:.0f}M, and it is the reason a single confidence level across the whole horizon
+  does not work. The near months can be committed against; the far months are a forecast with a
+  measured error rate.</p>
 </section>
 
 <section id="s2">

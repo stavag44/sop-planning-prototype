@@ -38,8 +38,10 @@ import pandas as pd
 RNG = np.random.default_rng(11)
 
 N_SIMS = 4000
+PIPELINE_SIMS = 600          # forward bookings layer, heavier per sim
 HORIZON_MONTHS = 12
 QUANTILES = [0.10, 0.25, 0.50, 0.75, 0.90]
+MATERIAL_RATE = 0.75         # matches simulate.py
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data")
@@ -133,6 +135,59 @@ def run_mc(book: pd.DataFrame, model: EmpiricalSlipModel, cutoff: pd.Timestamp,
     return months, total, per_scope
 
 
+def run_mc_pipeline(orders: pd.DataFrame, model: EmpiricalSlipModel,
+                    cutoff: pd.Timestamp, n_sims: int = N_SIMS,
+                    horizon: int = HORIZON_MONTHS, lookback_months: int = 6):
+    """Forward bookings not yet placed.
+
+    A demand plan is firm backlog plus expected new business. run_mc covers the firm
+    half. This covers the rest: draw a booking count per future month from recent
+    history, give each new order a promised lead time and a market-conditioned slip,
+    and land it. Orders booked far enough out do not convert inside the horizon at
+    all, which is why this layer builds rather than depletes.
+    """
+    recent = orders[orders.booked_month > cutoff - pd.DateOffset(months=lookback_months)]
+    by_month = recent.groupby(["booked_month", "market"]).size().reset_index(name="n")
+    rate = by_month.groupby("market").n.mean().to_dict()          # orders/month/market
+    mw_pool = {m: g.mw.to_numpy() for m, g in recent.groupby("market")}
+    asp = {m: (g.order_value / g.mw).mean() for m, g in recent.groupby("market")}
+    promised_pool = recent.promised_months.to_numpy()
+
+    months = [cutoff + pd.DateOffset(months=i + 1) for i in range(horizon)]
+    month_keys = np.array([m.to_period("M").ordinal for m in months])
+    markets = list(rate)
+
+    total = np.zeros((n_sims, horizon))
+    per_scope = {}
+    mk_region = orders.drop_duplicates("market").set_index("market").region.to_dict()
+    for m in markets:
+        per_scope.setdefault(mk_region[m], np.zeros((n_sims, horizon)))
+    per_scope["India (in APAC)"] = np.zeros((n_sims, horizon))
+
+    for s in range(n_sims):
+        for j_book, book_key in enumerate(month_keys):
+            for market in markets:
+                n = RNG.poisson(rate[market])
+                if n == 0:
+                    continue
+                mw = RNG.choice(mw_pool[market], size=n, replace=True)
+                value = mw * asp[market] * MATERIAL_RATE
+                promised = RNG.choice(promised_pool, size=n, replace=True)
+                pool = model.pools.get(market, model.fallback)
+                slip = RNG.choice(pool, size=n, replace=True)
+                landing = book_key + promised + np.rint(slip).astype(int)
+                for j, mk in enumerate(month_keys):
+                    hit = landing == mk
+                    if not hit.any():
+                        continue
+                    v = value[hit].sum()
+                    total[s, j] += v
+                    per_scope[mk_region[market]][s, j] += v
+                    if market == "India":
+                        per_scope["India (in APAC)"][s, j] += v
+    return months, total, per_scope
+
+
 def quantile_frame(months, draws, label) -> pd.DataFrame:
     rows = []
     for j, m in enumerate(months):
@@ -198,21 +253,48 @@ def main() -> None:
 
     cutoff = orders.booked_month.max()
     book = open_backlog(orders, cutoff)
-    months, total, per_region = run_mc(book, model, cutoff)
 
-    frames = [quantile_frame(months, total, "TOTAL")]
-    for r, draws in per_region.items():
-        frames.append(quantile_frame(months, draws, r))
+    # firm: material against orders already on the books
+    months, firm, firm_scope = run_mc(book, model, cutoff)
+    # pipeline: material against bookings not yet placed
+    _, pipe, pipe_scope = run_mc_pipeline(orders, model, cutoff, n_sims=PIPELINE_SIMS)
+
+    # combine. Draw counts differ, so pair each firm draw with a random pipeline draw.
+    idx = RNG.integers(0, pipe.shape[0], size=firm.shape[0])
+    total = firm + pipe[idx]
+    all_scope = {}
+    for k in set(firm_scope) | set(pipe_scope):
+        f = firm_scope.get(k, np.zeros_like(firm))
+        p = pipe_scope.get(k, np.zeros((pipe.shape[0], firm.shape[1])))
+        all_scope[k] = f + p[idx]
+
+    frames = []
+    for lbl, draws in (("firm", firm), ("pipeline", pipe[idx]), ("all", total)):
+        d = quantile_frame(months, draws, "TOTAL")
+        d["layer"] = lbl
+        frames.append(d)
+    for r, draws in all_scope.items():
+        d = quantile_frame(months, draws, r)
+        d["layer"] = "all"
+        frames.append(d)
     mc = pd.concat(frames, ignore_index=True)
-    mc.to_csv(os.path.join(DATA, "mc_monthly.csv"), index=False)
 
-    tot = mc[mc.scope == "TOTAL"]
-    print("Layer 2  forward material requirement, $M, %d sims over %d months from %s"
-          % (N_SIMS, HORIZON_MONTHS, cutoff.date()))
-    show = tot[["month", "p10", "p50", "p90"]].copy()
-    for c in ("p10", "p50", "p90"):
-        show[c] = (show[c] / 1e6).round(1)
+    tot = mc[(mc.scope == "TOTAL") & (mc.layer == "all")].reset_index(drop=True)
+    fm = mc[(mc.scope == "TOTAL") & (mc.layer == "firm")].reset_index(drop=True)
+    pl = mc[(mc.scope == "TOTAL") & (mc.layer == "pipeline")].reset_index(drop=True)
+
+    print("Layer 2  forward material requirement, $M, %d months from %s" %
+          (HORIZON_MONTHS, cutoff.date()))
+    show = pd.DataFrame({
+        "month": tot.month,
+        "firm": (fm.p50 / 1e6).round(1),
+        "pipeline": (pl.p50 / 1e6).round(1),
+        "p10": (tot.p10 / 1e6).round(1),
+        "p50": (tot.p50 / 1e6).round(1),
+        "p90": (tot.p90 / 1e6).round(1),
+    })
     show["spread"] = (show.p90 - show.p10).round(1)
+    show["firm_%"] = (fm.p50 / tot.p50 * 100).round(0)
     print(show.to_string(index=False))
     print()
 
@@ -220,7 +302,7 @@ def main() -> None:
     # India is excluded from the sum because it is nested inside APAC and would
     # otherwise be counted twice.
     naive = 0.0
-    for r, draws in per_region.items():
+    for r, draws in all_scope.items():
         if r.startswith("India"):
             continue
         naive += np.quantile(draws, 0.90, axis=0)
@@ -266,13 +348,15 @@ def main() -> None:
             print("  calibrated 80%% interval coverage:          %.0f%%"
                   % (cov.in_80_cal.mean() * 100))
 
-        # apply the calibration to the forward view
+        # apply the calibration to the combined forward view
         tot_spread = (tot.p90 - tot.p10).to_numpy()
         cal_lo = tot.p50.to_numpy() - (factor_80 * 0.5) * tot_spread
         cal_hi = tot.p50.to_numpy() + (factor_80 * 0.5) * tot_spread
-        mc.loc[mc.scope == "TOTAL", "cal80_lo"] = cal_lo
-        mc.loc[mc.scope == "TOTAL", "cal80_hi"] = cal_hi
-        mc.to_csv(os.path.join(DATA, "mc_monthly.csv"), index=False)
+        sel = (mc.scope == "TOTAL") & (mc.layer == "all")
+        mc.loc[sel, "cal80_lo"] = cal_lo
+        mc.loc[sel, "cal80_hi"] = cal_hi
+    mc.to_csv(os.path.join(DATA, "mc_monthly.csv"), index=False)
+    if not cov.empty:
         print()
         print("  forward view, first 3 months, raw vs calibrated 80%% ($M):")
         for j in range(3):
