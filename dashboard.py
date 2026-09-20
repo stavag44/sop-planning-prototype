@@ -446,8 +446,8 @@ def main() -> None:
 
 <div class="decisions">
   <h2>Who this is for</h2>
-  <p class="lede">A demand plan is only worth what it changes. Four functions consume this one,
-  each arriving with a different question.</p>
+  <p class="lede">Four functions consume this plan. Each arrives with a different question, and
+  each answer is somewhere different in the page.</p>
   <table>
     <thead><tr><th>Consumer</th><th>The question they arrive with</th><th>Where it is answered</th></tr></thead>
     <tbody>
@@ -572,17 +572,17 @@ def main() -> None:
 </section>
 
 <div class="closing">
-  <h2>What it takes to run this</h2>
-  <p>Every number above comes from one thing the order book does not usually retain: an
-  <strong>expected conversion date per order, recorded at the time it was expected</strong>, kept
-  month over month. Without that record there is no lookback, so the realization rate stays a
-  number somebody chooses and the interval stays uncalibrated.</p>
-  <p>That is the first thing to build, before any model. It is also the cheapest, because the
-  dates already exist in the pipeline; they are simply overwritten each month rather than kept.</p>
-  <p>The reason it is worth doing: today each of the four functions above discounts the plan by
-  some private amount and pads its own decision accordingly. None of those corrections are
-  visible to the others, so they compound. A measured bias makes the correction happen
-  <strong>once, centrally, with the arithmetic on the page</strong>.</p>
+  <h2>What this needs to run</h2>
+  <p>None of it works without a record of expected conversion dates. Each order needs the date it
+  was expected to convert, recorded when that date was set, and <strong>kept when the date
+  moves</strong>. The lookback measures against that record.</p>
+  <p>Those dates already exist in the pipeline. They get overwritten each month instead of
+  retained, so there is nothing to measure against. Keeping them costs very little and has to come
+  before any modeling work.</p>
+  <p>Without the record, the realization rate is a number someone picks and the interval has no
+  tested coverage. Each function downstream then applies its own unstated discount to the plan.
+  Measuring bias puts that correction in one place, where all four are working from the same
+  number.</p>
 </div>
 
 <footer>
