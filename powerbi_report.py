@@ -97,8 +97,14 @@ def card(x, y, w, h, z, measure: str, label: str) -> dict:
         "projections": {"Values": [{"queryRef": "%s.%s" % (MEAS, measure)}]},
         "prototypeQuery": proto([("m", MEAS)], [measure_sel(measure)]),
         "objects": {
+            # labelDisplayUnits 1 = None. The measure format strings already
+            # scale to millions and append "M"; leaving the visual on Auto
+            # scaled a second time and appended a second "M", so $267,492,950
+            # rendered as "$0MM".
             "labels": [{"properties": _obj({"color": INK, "fontSize": 28,
-                                            "fontFamily": "Segoe UI Semibold"})}],
+                                            "fontFamily": "Segoe UI Semibold",
+                                            "labelDisplayUnits": 1,
+                                            "labelPrecision": 0})}],
             "categoryLabels": [{"properties": _obj({"color": MUTED,
                                                     "fontSize": 10})}],
         },
@@ -129,7 +135,9 @@ def chart(x, y, w, h, z, vtype: str, cat: tuple[str, str], measures: list[str],
         },
         "prototypeQuery": proto(entities, selects),
         "objects": {
-            "valueAxis": [{"properties": _obj({"showAxisTitle": False})}],
+            # same reason as the cards: the format string already scales
+            "valueAxis": [{"properties": _obj({"showAxisTitle": False,
+                                               "labelDisplayUnits": 1})}],
             "categoryAxis": [{"properties": _obj({"showAxisTitle": False,
                                                   "fontSize": 9})}],
             "legend": [{"properties": _obj({"show": legend, "position": "Top",
