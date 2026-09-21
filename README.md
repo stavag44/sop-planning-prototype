@@ -102,7 +102,7 @@ the movement was across versions, not across runs of one.)
 
 ## The Excel workbook
 
-`SOP_data_and_calculations.xlsx` carries the same analysis in the form most planning
+`Nextpower_SOP_Workbook_Meara.xlsx` carries the same analysis in the form most planning
 teams actually work in, and exists so the method can be audited without reading
 Python. Ten tabs, from the raw order book through every derived field and aggregate
 to the model outputs.
@@ -130,9 +130,15 @@ It is a `.pbip` rather than a `.pbix` because that format is text. The model is
 readable JSON and the report layout is readable JSON, so both diff in git
 instead of arriving as a binary blob nobody can review.
 
-Open it in Power BI Desktop and **click Refresh once**. A `.pbip` ships without
-cached data by design, so the first open has the layout but no numbers until the
-queries run.
+`Nextpower_SOP_PowerBI_Meara.pbix` is the same model with the data packaged
+inside it. That is the file to open if you just want to use the thing: it needs
+no CSVs, no refresh and no Python, and it works on a machine that has never seen
+this repository.
+
+The `.pbip` is the source. Open it in Power BI Desktop and **click Refresh
+once**, because a project ships without cached data by design. Its CSV paths are
+absolute, so re-run `powerbi_build.py` first if the repository lives somewhere
+other than where it was generated.
 
 The CSV paths are written into the queries absolutely. Re-running
 `python powerbi_build.py` regenerates them for whatever machine it runs on. A

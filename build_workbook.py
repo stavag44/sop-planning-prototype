@@ -9,7 +9,7 @@ that raw tab, so each number on the dashboard can be traced back to a source row
 Anything Excel can reasonably compute is a formula. The Monte Carlo draw is the one step
 it cannot, so the tabs that carry simulated percentiles are marked as model output.
 
-Output: SOP_data_and_calculations.xlsx
+Output: Nextpower_SOP_Workbook_Meara.xlsx
 """
 
 from __future__ import annotations
@@ -37,7 +37,8 @@ def pctile(ws, row, col, cond, values, q):
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data")
-OUT = os.path.join(HERE, "SOP_data_and_calculations.xlsx")
+# named for the inbox it lands in, not for the build step that writes it
+OUT = os.path.join(HERE, "Nextpower_SOP_Workbook_Meara.xlsx")
 
 ORANGE = "FE5000"
 DARK = "111827"
