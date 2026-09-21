@@ -32,7 +32,8 @@ tracker manufacturer; nothing else corresponds to any real company's business. T
 is styled to that company's published web palette and carries a byline saying it is not
 their document.
 
-The point is the method. Accuracy against a real business was never the claim.
+The method is what is being demonstrated. Nothing here is a claim about how that
+company actually runs.
 
 ## Method
 
@@ -53,8 +54,8 @@ That figure depends on an assumption the model makes and a real business would n
 slip is drawn independently per order, with no shared shock. Variance adds *under
 independence*, which is what makes aggregate spread grow with the square root of the
 count. Real slip correlates through tariffs, interconnection queues and financing
-conditions, and under positive correlation the diversification benefit shrinks. A
-production model would estimate that correlation rather than assume it away.
+conditions, and under positive correlation the diversification benefit shrinks.
+Estimating that correlation is production work and this model does not do it.
 
 **3. Coverage test.** A walk-forward check of whether the interval means what it says.
 The model is re-run at eight past cutoffs using only what was known at each one, and the
@@ -65,9 +66,9 @@ actually fell inside the stated range.
 In this run the stated 80% interval contained the outcome 89.6% of the time across 48
 scored forecasts, and the stated 50% interval contained it 72.9%. Of the misses, 3 fell
 above the interval and 2 below. Both figures sit above nominal, but those 48 forecasts
-cover only 13 distinct months, and against 13 effective observations neither gap is
-distinguishable from chance. The interval is not demonstrably too wide; it is
-demonstrably not too narrow.
+cover only 13 distinct months, and against 13 effective observations neither gap
+clears chance. So the interval is not too narrow. Whether it is too wide, this sample
+cannot say.
 
 Two limits on what the test covers, both stated on the page as well. It scores the
 booked backlog only, because pipeline demand at a past cutoff cannot be checked against
@@ -82,8 +83,8 @@ and the cause is drift rather than scatter. Sorted by cutoff, the month +1 error
 `----++++`: the four earliest cutoffs forecast high by $2.8M on average and the four
 most recent forecast low by $4.0M. A run that clean turns up by chance about 2.9% of
 the time. The published median error at that horizon is near zero only because the two
-halves cancel. A drifting front month is a tracking-signal problem with a known fix; a
-wide front month would not be, and the two are indistinguishable in a coverage number.
+halves cancel. Drift has a standard fix, a tracking signal on the front month. The
+pooled coverage number would never have shown it.
 
 There is no fitted correction here, and that is a decision rather than an omission. An
 earlier version ran a split-conformal step to rescale the interval. The reason for
@@ -137,13 +138,10 @@ this repository.
 
 The `.pbip` is the source. Open it in Power BI Desktop and **click Refresh
 once**, because a project ships without cached data by design. Its CSV paths are
-absolute, so re-run `powerbi_build.py` first if the repository lives somewhere
-other than where it was generated.
-
-The CSV paths are written into the queries absolutely. Re-running
-`python powerbi_build.py` regenerates them for whatever machine it runs on. A
-`DataFolder` parameter is the tidier form and was the first attempt, but Power
-BI reported a cyclic reference and blocked every query that used it.
+written in absolutely, so run `python powerbi_build.py` first on any machine
+other than the one that generated it. A `DataFolder` parameter is the tidier
+form and was the first attempt, but Power BI reported a cyclic reference and
+blocked every query that used it.
 
 Four things the model does that the HTML page does not:
 
@@ -180,6 +178,16 @@ so the figures reproduce.
 
 ## Files
 
+The three files to open:
+
+| | |
+|---|---|
+| `index.html` | the dashboard, self-contained, opens in any browser |
+| `Nextpower_SOP_PowerBI_Meara.pbix` | the Power BI model with data packaged in |
+| `Nextpower_SOP_Workbook_Meara.xlsx` | the workbook, formulas against the raw tab |
+
+What builds them:
+
 | | |
 |---|---|
 | `simulate.py` | project-level booking and slip generation, four regions, six markets |
@@ -187,7 +195,10 @@ so the figures reproduce.
 | `dashboard.py` | builds the self-contained HTML page |
 | `build_workbook.py` | builds the Excel workbook |
 | `check_render.py` | fails the build if any chart carries no data |
+| `powerbi_export.py` | reshapes `data/` into a star schema, asserts grain and keys |
+| `powerbi_build.py` | generates the semantic model: tables, relationships, measures |
+| `powerbi_report.py` | generates the four-page report layout |
 | `data/` | generated CSVs, regenerable from the scripts |
-| `index.html` | the dashboard |
+| `pbi/` | the Power BI project and its star-schema CSVs |
 
 Brendan Meara
