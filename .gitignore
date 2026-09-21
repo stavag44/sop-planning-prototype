@@ -5,3 +5,6 @@
 .DS_Store
 Thumbs.db
 ~$*.xlsx
+pbi/.pbi/
+pbi/**/.pbi/
+pbi/**/cache.abf

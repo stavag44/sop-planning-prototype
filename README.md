@@ -121,6 +121,43 @@ observation count, the distinct-month count, both interval coverage figures, the
 counts and the per-horizon breakdown come out the same in the spreadsheet as in the
 model.
 
+## The Power BI project
+
+`pbi/Nextpower SOP.pbip` is the same analysis as a semantic model rather than a
+page: six tables in a star schema, nine relationships, and 36 DAX measures.
+
+It is a `.pbip` rather than a `.pbix` because that format is text. The model is
+readable JSON and the report layout is readable JSON, so both diff in git
+instead of arriving as a binary blob nobody can review.
+
+Open it in Power BI Desktop and **click Refresh once**. A `.pbip` ships without
+cached data by design, so the first open has the layout but no numbers until the
+queries run.
+
+The CSV paths are written into the queries absolutely. Re-running
+`python powerbi_build.py` regenerates them for whatever machine it runs on. A
+`DataFolder` parameter is the tidier form and was the first attempt, but Power
+BI reported a cyclic reference and blocked every query that used it.
+
+Four things the model does that the HTML page does not:
+
+- **Role-playing dates.** `fact_orders` joins `dim_date` three times, on booked,
+  promised and actual conversion. Two of those relationships are inactive and
+  the measures reach for them with `USERELATIONSHIP`, so "booked in March" and
+  "converting in March" are different questions against one table.
+- **Percentiles that respond to the filter.** `Slip P90` is `PERCENTILEX.INC`
+  over whatever is in context rather than a stored number, so slicing to a
+  region or a status recomputes it.
+- **The blend gap as a measure.** `Regional Blend P90` recomputes a market's P90
+  at its region's grain, and `Blend Gap` is the distance. That is the section 3
+  finding as something you can put on any visual.
+- **A what-if parameter** on the realization rate: the native equivalent of the
+  slider, driving three measures instead of one chart.
+
+Measures are foldered (Volume, Backlog, Flow, Forecast, Slip, Realization,
+Scenario, Coverage) and every one carries a description, so the field list
+explains itself to someone who did not build it.
+
 ## Running it
 
 ```

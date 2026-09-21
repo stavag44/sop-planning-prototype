@@ -1,0 +1,1146 @@
+{
+  "name": "SemanticModel",
+  "compatibilityLevel": 1567,
+  "model": {
+    "culture": "en-US",
+    "collation": "Latin1_General_100_BIN2_UTF8",
+    "dataAccessOptions": {
+      "legacyRedirects": true,
+      "returnErrorValuesAsNull": true
+    },
+    "defaultPowerBIDataSourceVersion": "powerBI_V3",
+    "sourceQueryCulture": "en-US",
+    "tables": [
+      {
+        "name": "dim_date",
+        "lineageTag": "dfe6f68c-3dbf-4289-87b6-b75b10a8ca6f",
+        "columns": [
+          {
+            "name": "date_key",
+            "dataType": "dateTime",
+            "sourceColumn": "date_key",
+            "lineageTag": "4a188ad6-32ec-4135-92ca-d1991a07e467",
+            "summarizeBy": "none",
+            "formatString": "yyyy-mm-dd"
+          },
+          {
+            "name": "year",
+            "dataType": "int64",
+            "sourceColumn": "year",
+            "lineageTag": "57fde2ea-add6-4e46-8b3b-0ba1f1278cab",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "quarter",
+            "dataType": "string",
+            "sourceColumn": "quarter",
+            "lineageTag": "165fac57-9174-48f4-b44f-e771c92b0718",
+            "summarizeBy": "none"
+          },
+          {
+            "name": "month_no",
+            "dataType": "int64",
+            "sourceColumn": "month_no",
+            "lineageTag": "d310f4aa-472f-4b02-a366-f119d5536217",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "month_name",
+            "dataType": "string",
+            "sourceColumn": "month_name",
+            "lineageTag": "fb5eba1c-fc15-4c16-ae34-d851f81b8a00",
+            "summarizeBy": "none"
+          },
+          {
+            "name": "year_month",
+            "dataType": "string",
+            "sourceColumn": "year_month",
+            "lineageTag": "0df90e1f-9d41-4f47-94f3-11e8dc8d2213",
+            "summarizeBy": "none",
+            "sortByColumn": "year_month_sort"
+          },
+          {
+            "name": "fy_label",
+            "dataType": "string",
+            "sourceColumn": "fy_label",
+            "lineageTag": "6e6d6648-0eb3-4c40-b380-4ae54290b520",
+            "summarizeBy": "none"
+          },
+          {
+            "name": "year_month_sort",
+            "dataType": "int64",
+            "sourceColumn": "year_month_sort",
+            "lineageTag": "23cf5a5d-9f8e-48d7-b277-5b0bc08c8139",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "date",
+            "dataType": "dateTime",
+            "sourceColumn": "date",
+            "lineageTag": "53048112-618b-4bd6-a0e3-69a8cd7a5ceb",
+            "summarizeBy": "none",
+            "formatString": "yyyy-mm-dd"
+          }
+        ],
+        "partitions": [
+          {
+            "name": "dim_date",
+            "mode": "import",
+            "source": {
+              "type": "m",
+              "expression": [
+                "let",
+                "    Source = Csv.Document(",
+                "        File.Contents(\"C:\\Users\\stava\\OneDrive\\Documents\\75TH\\Job-Search-Relocation\\nextpower_sim\\pbi\\data\\dim_date.csv\"),",
+                "        [Delimiter = \",\", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]",
+                "    ),",
+                "    Headers = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),",
+                "    Typed = Table.TransformColumnTypes(Headers, {{\"date_key\", type date}, {\"year\", Int64.Type}, {\"quarter\", type text}, {\"month_no\", Int64.Type}, {\"month_name\", type text}, {\"year_month\", type text}, {\"fy_label\", type text}, {\"year_month_sort\", Int64.Type}, {\"date\", type date}})",
+                "in",
+                "    Typed"
+              ]
+            }
+          }
+        ],
+        "dataCategory": "Time"
+      },
+      {
+        "name": "dim_market",
+        "lineageTag": "264f6c74-b5e7-417d-95ba-43ba3dfc6153",
+        "columns": [
+          {
+            "name": "market_key",
+            "dataType": "string",
+            "sourceColumn": "market_key",
+            "lineageTag": "4485a55c-aaea-4603-b75b-7fe8ebd60fdb",
+            "summarizeBy": "none",
+            "isHidden": true
+          },
+          {
+            "name": "market",
+            "dataType": "string",
+            "sourceColumn": "market",
+            "lineageTag": "8259aa8f-cd32-40fc-bdec-2ae7805ed39c",
+            "summarizeBy": "none"
+          },
+          {
+            "name": "region",
+            "dataType": "string",
+            "sourceColumn": "region",
+            "lineageTag": "8ed6399b-e1d1-4af4-a512-1896a268bbd6",
+            "summarizeBy": "none"
+          },
+          {
+            "name": "tracked_separately",
+            "dataType": "string",
+            "sourceColumn": "tracked_separately",
+            "lineageTag": "7a84ba11-de4a-4d5c-9871-72836c11bf20",
+            "summarizeBy": "none"
+          }
+        ],
+        "partitions": [
+          {
+            "name": "dim_market",
+            "mode": "import",
+            "source": {
+              "type": "m",
+              "expression": [
+                "let",
+                "    Source = Csv.Document(",
+                "        File.Contents(\"C:\\Users\\stava\\OneDrive\\Documents\\75TH\\Job-Search-Relocation\\nextpower_sim\\pbi\\data\\dim_market.csv\"),",
+                "        [Delimiter = \",\", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]",
+                "    ),",
+                "    Headers = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),",
+                "    Typed = Table.TransformColumnTypes(Headers, {{\"market_key\", type text}, {\"market\", type text}, {\"region\", type text}, {\"tracked_separately\", type text}})",
+                "in",
+                "    Typed"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "fact_orders",
+        "lineageTag": "15a543c0-3faa-4e28-a071-77b5e4f4f2ad",
+        "columns": [
+          {
+            "name": "order_id",
+            "dataType": "string",
+            "sourceColumn": "order_id",
+            "lineageTag": "adb21ae3-3a42-44c3-94cc-99de68880feb",
+            "summarizeBy": "none"
+          },
+          {
+            "name": "market",
+            "dataType": "string",
+            "sourceColumn": "market",
+            "lineageTag": "123580e9-414a-4329-a1a7-b79411eb4368",
+            "summarizeBy": "none"
+          },
+          {
+            "name": "booked_key",
+            "dataType": "dateTime",
+            "sourceColumn": "booked_key",
+            "lineageTag": "5929b72f-f304-4d12-a5b1-f67abb54fe5d",
+            "summarizeBy": "none",
+            "formatString": "yyyy-mm-dd",
+            "isHidden": true
+          },
+          {
+            "name": "expected_key",
+            "dataType": "dateTime",
+            "sourceColumn": "expected_key",
+            "lineageTag": "6b707e14-c244-41ee-8700-252c8e0a2bbe",
+            "summarizeBy": "none",
+            "formatString": "yyyy-mm-dd",
+            "isHidden": true
+          },
+          {
+            "name": "actual_key",
+            "dataType": "dateTime",
+            "sourceColumn": "actual_key",
+            "lineageTag": "978ef9b7-87b0-46eb-9014-065ee9feea30",
+            "summarizeBy": "none",
+            "formatString": "yyyy-mm-dd",
+            "isHidden": true
+          },
+          {
+            "name": "mw",
+            "dataType": "double",
+            "sourceColumn": "mw",
+            "lineageTag": "40027a50-f8ba-4ad9-8e97-5b18a118b0c7",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "order_value",
+            "dataType": "double",
+            "sourceColumn": "order_value",
+            "lineageTag": "96755ead-b0ac-41d9-a799-9918ba9b85f7",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "material_committed",
+            "dataType": "double",
+            "sourceColumn": "material_committed",
+            "lineageTag": "b01407da-2c61-433f-9a69-8f6672ad66a8",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "promised_months",
+            "dataType": "int64",
+            "sourceColumn": "promised_months",
+            "lineageTag": "f0f9acbf-4604-4578-a321-9ae1d7e884ce",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "slip_months",
+            "dataType": "double",
+            "sourceColumn": "slip_months",
+            "lineageTag": "49058ef4-8483-44cb-bdc7-7ad7d7dad297",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "cancelled",
+            "dataType": "boolean",
+            "sourceColumn": "cancelled",
+            "lineageTag": "6bfa0104-f994-438e-9681-b64fcc90204c",
+            "summarizeBy": "none"
+          },
+          {
+            "name": "status",
+            "dataType": "string",
+            "sourceColumn": "status",
+            "lineageTag": "224e3c8a-cfb0-40c9-9dde-370e3ce25bb7",
+            "summarizeBy": "none"
+          }
+        ],
+        "partitions": [
+          {
+            "name": "fact_orders",
+            "mode": "import",
+            "source": {
+              "type": "m",
+              "expression": [
+                "let",
+                "    Source = Csv.Document(",
+                "        File.Contents(\"C:\\Users\\stava\\OneDrive\\Documents\\75TH\\Job-Search-Relocation\\nextpower_sim\\pbi\\data\\fact_orders.csv\"),",
+                "        [Delimiter = \",\", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]",
+                "    ),",
+                "    Headers = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),",
+                "    Typed = Table.TransformColumnTypes(Headers, {{\"order_id\", type text}, {\"market\", type text}, {\"booked_key\", type date}, {\"expected_key\", type date}, {\"actual_key\", type date}, {\"mw\", type number}, {\"order_value\", type number}, {\"material_committed\", type number}, {\"promised_months\", Int64.Type}, {\"slip_months\", type number}, {\"cancelled\", type logical}, {\"status\", type text}})",
+                "in",
+                "    Typed"
+              ]
+            }
+          }
+        ],
+        "isHidden": false
+      },
+      {
+        "name": "fact_forecast",
+        "lineageTag": "1fba2e93-afea-465b-a15b-68681ee747f3",
+        "columns": [
+          {
+            "name": "month",
+            "dataType": "dateTime",
+            "sourceColumn": "month",
+            "lineageTag": "ed00f447-b6ab-4664-b72d-39af587b299a",
+            "summarizeBy": "none",
+            "formatString": "yyyy-mm-dd"
+          },
+          {
+            "name": "date_key",
+            "dataType": "dateTime",
+            "sourceColumn": "date_key",
+            "lineageTag": "fb0f4ddd-22b0-4f88-8917-02cd2bbf67fe",
+            "summarizeBy": "none",
+            "formatString": "yyyy-mm-dd"
+          },
+          {
+            "name": "scope",
+            "dataType": "string",
+            "sourceColumn": "scope",
+            "lineageTag": "89b5fe10-8cb1-497b-87c6-45a640da8d8b",
+            "summarizeBy": "none"
+          },
+          {
+            "name": "layer",
+            "dataType": "string",
+            "sourceColumn": "layer",
+            "lineageTag": "0741877c-25e3-4437-8339-68644caea286",
+            "summarizeBy": "none"
+          },
+          {
+            "name": "p10",
+            "dataType": "double",
+            "sourceColumn": "p10",
+            "lineageTag": "28741083-e87c-4c35-98c9-d97a2f1dd4df",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "p25",
+            "dataType": "double",
+            "sourceColumn": "p25",
+            "lineageTag": "bf0e42c5-5733-47ad-871d-7cbf7b49dfdd",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "p50",
+            "dataType": "double",
+            "sourceColumn": "p50",
+            "lineageTag": "f672a295-1fc5-403f-8996-a1f95b7549f1",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "p75",
+            "dataType": "double",
+            "sourceColumn": "p75",
+            "lineageTag": "3502b2a1-a4b5-4847-ae1a-ab6b6e25ac6d",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "p90",
+            "dataType": "double",
+            "sourceColumn": "p90",
+            "lineageTag": "a835a66d-90ef-40da-bf59-95d8092ee55b",
+            "summarizeBy": "sum"
+          }
+        ],
+        "partitions": [
+          {
+            "name": "fact_forecast",
+            "mode": "import",
+            "source": {
+              "type": "m",
+              "expression": [
+                "let",
+                "    Source = Csv.Document(",
+                "        File.Contents(\"C:\\Users\\stava\\OneDrive\\Documents\\75TH\\Job-Search-Relocation\\nextpower_sim\\pbi\\data\\fact_forecast.csv\"),",
+                "        [Delimiter = \",\", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]",
+                "    ),",
+                "    Headers = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),",
+                "    Typed = Table.TransformColumnTypes(Headers, {{\"month\", type date}, {\"date_key\", type date}, {\"scope\", type text}, {\"layer\", type text}, {\"p10\", type number}, {\"p25\", type number}, {\"p50\", type number}, {\"p75\", type number}, {\"p90\", type number}})",
+                "in",
+                "    Typed"
+              ]
+            }
+          }
+        ],
+        "isHidden": false
+      },
+      {
+        "name": "fact_coverage",
+        "lineageTag": "4a0fcfff-53cb-4fc5-8dfc-3ad2e25839f9",
+        "columns": [
+          {
+            "name": "cutoff",
+            "dataType": "dateTime",
+            "sourceColumn": "cutoff",
+            "lineageTag": "a1a0a833-9d2a-4ad3-909d-f278d1cdbcd5",
+            "summarizeBy": "none",
+            "formatString": "yyyy-mm-dd"
+          },
+          {
+            "name": "month",
+            "dataType": "dateTime",
+            "sourceColumn": "month",
+            "lineageTag": "684595eb-1a86-43aa-a188-baf3268d3fe8",
+            "summarizeBy": "none",
+            "formatString": "yyyy-mm-dd"
+          },
+          {
+            "name": "cutoff_key",
+            "dataType": "dateTime",
+            "sourceColumn": "cutoff_key",
+            "lineageTag": "17489490-b61d-4741-8fac-8a3ad874acca",
+            "summarizeBy": "none",
+            "formatString": "yyyy-mm-dd",
+            "isHidden": true
+          },
+          {
+            "name": "date_key",
+            "dataType": "dateTime",
+            "sourceColumn": "date_key",
+            "lineageTag": "fe7e46e5-38a0-4625-a679-d86fc54d3dab",
+            "summarizeBy": "none",
+            "formatString": "yyyy-mm-dd"
+          },
+          {
+            "name": "months_ahead",
+            "dataType": "int64",
+            "sourceColumn": "months_ahead",
+            "lineageTag": "a295eec4-856c-4d73-acf6-5b409ffab00f",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "actual",
+            "dataType": "double",
+            "sourceColumn": "actual",
+            "lineageTag": "e5d0b81e-aedb-4b3e-b939-5bbf5eedd159",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "p10",
+            "dataType": "double",
+            "sourceColumn": "p10",
+            "lineageTag": "04601316-33ea-4185-9b70-3cbd05761197",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "p25",
+            "dataType": "double",
+            "sourceColumn": "p25",
+            "lineageTag": "a9a15118-8030-4c90-a889-52975ed56d13",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "p50",
+            "dataType": "double",
+            "sourceColumn": "p50",
+            "lineageTag": "6a8202f6-1504-4d2e-aa2f-0fd5c601413c",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "p75",
+            "dataType": "double",
+            "sourceColumn": "p75",
+            "lineageTag": "d749c1d8-51a2-49e6-94cd-2054f26828e1",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "p90",
+            "dataType": "double",
+            "sourceColumn": "p90",
+            "lineageTag": "12e38620-fe18-4140-b44a-2cacd1ff994f",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "error",
+            "dataType": "double",
+            "sourceColumn": "error",
+            "lineageTag": "eff2c88c-7167-44c9-81d9-18c01e628b78",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "inside_80",
+            "dataType": "int64",
+            "sourceColumn": "inside_80",
+            "lineageTag": "ca480145-3527-4d43-b1dd-86f8ff1ee6d6",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "inside_50",
+            "dataType": "int64",
+            "sourceColumn": "inside_50",
+            "lineageTag": "94fcdba6-2985-4e28-a480-16bcc18e4282",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "direction",
+            "dataType": "string",
+            "sourceColumn": "direction",
+            "lineageTag": "2b62ed37-1700-47ec-8a9e-991949da13ed",
+            "summarizeBy": "none"
+          }
+        ],
+        "partitions": [
+          {
+            "name": "fact_coverage",
+            "mode": "import",
+            "source": {
+              "type": "m",
+              "expression": [
+                "let",
+                "    Source = Csv.Document(",
+                "        File.Contents(\"C:\\Users\\stava\\OneDrive\\Documents\\75TH\\Job-Search-Relocation\\nextpower_sim\\pbi\\data\\fact_coverage.csv\"),",
+                "        [Delimiter = \",\", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]",
+                "    ),",
+                "    Headers = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),",
+                "    Typed = Table.TransformColumnTypes(Headers, {{\"cutoff\", type date}, {\"month\", type date}, {\"cutoff_key\", type date}, {\"date_key\", type date}, {\"months_ahead\", Int64.Type}, {\"actual\", type number}, {\"p10\", type number}, {\"p25\", type number}, {\"p50\", type number}, {\"p75\", type number}, {\"p90\", type number}, {\"error\", type number}, {\"inside_80\", Int64.Type}, {\"inside_50\", Int64.Type}, {\"direction\", type text}})",
+                "in",
+                "    Typed"
+              ]
+            }
+          }
+        ],
+        "isHidden": false
+      },
+      {
+        "name": "fact_lookback",
+        "lineageTag": "57d4f231-2541-4d76-acc4-6a2f227911f6",
+        "columns": [
+          {
+            "name": "market",
+            "dataType": "string",
+            "sourceColumn": "market",
+            "lineageTag": "d8829af9-fe9c-4dd3-934e-420f7c18aa59",
+            "summarizeBy": "none"
+          },
+          {
+            "name": "month",
+            "dataType": "dateTime",
+            "sourceColumn": "month",
+            "lineageTag": "e3b3caf8-8a84-41f0-99ac-032275a9e239",
+            "summarizeBy": "none",
+            "formatString": "yyyy-mm-dd"
+          },
+          {
+            "name": "date_key",
+            "dataType": "dateTime",
+            "sourceColumn": "date_key",
+            "lineageTag": "9c8f3b61-84bd-4bca-b328-79266f8bd781",
+            "summarizeBy": "none",
+            "formatString": "yyyy-mm-dd"
+          },
+          {
+            "name": "expected_mw",
+            "dataType": "double",
+            "sourceColumn": "expected_mw",
+            "lineageTag": "90d99269-a137-4bbd-ad72-ad9615992597",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "actual_mw",
+            "dataType": "double",
+            "sourceColumn": "actual_mw",
+            "lineageTag": "906acf66-fba1-4c71-866c-abc96644b5b9",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "realization",
+            "dataType": "double",
+            "sourceColumn": "realization",
+            "lineageTag": "d041a4a3-c5e4-4326-85ec-8375179f26d9",
+            "summarizeBy": "sum"
+          },
+          {
+            "name": "bias_mw",
+            "dataType": "double",
+            "sourceColumn": "bias_mw",
+            "lineageTag": "ede43cfd-488f-449a-8054-ca2d76819865",
+            "summarizeBy": "sum"
+          }
+        ],
+        "partitions": [
+          {
+            "name": "fact_lookback",
+            "mode": "import",
+            "source": {
+              "type": "m",
+              "expression": [
+                "let",
+                "    Source = Csv.Document(",
+                "        File.Contents(\"C:\\Users\\stava\\OneDrive\\Documents\\75TH\\Job-Search-Relocation\\nextpower_sim\\pbi\\data\\fact_lookback.csv\"),",
+                "        [Delimiter = \",\", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]",
+                "    ),",
+                "    Headers = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),",
+                "    Typed = Table.TransformColumnTypes(Headers, {{\"market\", type text}, {\"month\", type date}, {\"date_key\", type date}, {\"expected_mw\", type number}, {\"actual_mw\", type number}, {\"realization\", type number}, {\"bias_mw\", type number}})",
+                "in",
+                "    Typed"
+              ]
+            }
+          }
+        ],
+        "isHidden": false
+      },
+      {
+        "name": "Realization Scenario",
+        "lineageTag": "2833201f-892a-4091-942a-8e6ce2894cc0",
+        "columns": [
+          {
+            "name": "Realization Scenario",
+            "dataType": "double",
+            "type": "calculatedTableColumn",
+            "isNameInferred": true,
+            "isDataTypeInferred": true,
+            "sourceColumn": "[Realization Scenario]",
+            "formatString": "0%",
+            "lineageTag": "ceb1d440-873e-4c51-97e3-5a46b081facd",
+            "summarizeBy": "none",
+            "annotations": [
+              {
+                "name": "SummarizationSetBy",
+                "value": "Automatic"
+              }
+            ]
+          }
+        ],
+        "partitions": [
+          {
+            "name": "Realization Scenario",
+            "mode": "import",
+            "source": {
+              "type": "calculated",
+              "expression": "SELECTCOLUMNS (\n    GENERATESERIES ( 0.55, 1, 0.05 ),\n    \"Realization Scenario\", [Value]\n)"
+            }
+          }
+        ],
+        "annotations": [
+          {
+            "name": "PBI_Id",
+            "value": "a3f884882ec441c287007ddc9aa41bbc"
+          }
+        ]
+      },
+      {
+        "name": "S&OP Metrics",
+        "lineageTag": "57518536-4bae-47eb-badf-934bc990e832",
+        "columns": [
+          {
+            "name": "_placeholder",
+            "dataType": "string",
+            "type": "calculatedTableColumn",
+            "isNameInferred": true,
+            "isDataTypeInferred": true,
+            "sourceColumn": "[_placeholder]",
+            "isHidden": true,
+            "lineageTag": "7090554d-a476-4d56-9616-647de9b140f3",
+            "summarizeBy": "none"
+          }
+        ],
+        "partitions": [
+          {
+            "name": "S&OP Metrics",
+            "mode": "import",
+            "source": {
+              "type": "calculated",
+              "expression": "ROW ( \"_placeholder\", BLANK () )"
+            }
+          }
+        ],
+        "measures": [
+          {
+            "name": "Orders",
+            "expression": "COUNTROWS ( fact_orders )",
+            "formatString": "#,0",
+            "displayFolder": "Volume",
+            "description": "Count of booked projects in context.",
+            "lineageTag": "b3315c16-fe5a-49ad-af52-aac99d57a631"
+          },
+          {
+            "name": "MW Booked",
+            "expression": "SUM ( fact_orders[mw] )",
+            "formatString": "#,0.0",
+            "displayFolder": "Volume",
+            "description": "Nameplate MW on booked orders.",
+            "lineageTag": "f31f98cd-01ac-4f4e-9641-b5980c9c456d"
+          },
+          {
+            "name": "Order Value",
+            "expression": "SUM ( fact_orders[order_value] )",
+            "formatString": "\\$#,0,,\"M\"",
+            "displayFolder": "Volume",
+            "description": "Booked order value.",
+            "lineageTag": "7eeb93b9-f839-4f5d-9e2a-d539c45aaa95"
+          },
+          {
+            "name": "Material Committed",
+            "expression": "SUM ( fact_orders[material_committed] )",
+            "formatString": "\\$#,0,,\"M\"",
+            "displayFolder": "Volume",
+            "description": "Order value times the material rate from the case study.",
+            "lineageTag": "0dc1a2be-ffbf-4420-a27a-2d90089cd3e8"
+          },
+          {
+            "name": "Open Backlog $",
+            "expression": [
+              "VAR AsOf = MAX ( dim_date[date] )",
+              "RETURN",
+              "CALCULATE (",
+              "    SUMX (",
+              "        FILTER (",
+              "            fact_orders,",
+              "            fact_orders[booked_key] <= AsOf",
+              "                && NOT fact_orders[cancelled]",
+              "                && ( ISBLANK ( fact_orders[actual_key] )",
+              "                     || fact_orders[actual_key] > AsOf )",
+              "        ),",
+              "        fact_orders[order_value]",
+              "    ),",
+              "    REMOVEFILTERS ( dim_date )",
+              ")"
+            ],
+            "formatString": "\\$#,0,,\"M\"",
+            "displayFolder": "Backlog",
+            "description": "Booked on or before the date, not cancelled, not yet converted. Cancelled orders are excluded from both sides; leaving them in the booked side overstates backlog permanently, since they never convert.",
+            "lineageTag": "a5e8337d-69c3-46a4-9082-1eba2b6a3fb0"
+          },
+          {
+            "name": "Open Backlog Material",
+            "expression": "[Open Backlog $] * 0.5",
+            "formatString": "\\$#,0,,\"M\"",
+            "displayFolder": "Backlog",
+            "description": "Material value of open backlog.",
+            "lineageTag": "7e11c71b-fa4d-4175-ab24-e25bb80ab754"
+          },
+          {
+            "name": "Material at Risk",
+            "expression": [
+              "VAR AsOf = MAX ( dim_date[date] )",
+              "RETURN",
+              "CALCULATE (",
+              "    SUMX (",
+              "        FILTER (",
+              "            fact_orders,",
+              "            fact_orders[booked_key] <= AsOf",
+              "                && NOT fact_orders[cancelled]",
+              "                && ( ISBLANK ( fact_orders[actual_key] )",
+              "                     || fact_orders[actual_key] > AsOf )",
+              "                && fact_orders[expected_key] <= AsOf",
+              "        ),",
+              "        fact_orders[material_committed]",
+              "    ),",
+              "    REMOVEFILTERS ( dim_date )",
+              ")"
+            ],
+            "formatString": "\\$#,0,,\"M\"",
+            "displayFolder": "Backlog",
+            "description": "Open orders already past their promised date. Filtered on the promised date, not on realised slip: slip is only knowable after the fact, and a KPI built on it reports something no planner could have produced.",
+            "lineageTag": "908cab48-4372-4d22-a31b-81366fb502f6"
+          },
+          {
+            "name": "Converted $",
+            "expression": [
+              "CALCULATE (",
+              "    SUM ( fact_orders[order_value] ),",
+              "    USERELATIONSHIP ( fact_orders[actual_key], dim_date[date] ),",
+              "    fact_orders[cancelled] = FALSE",
+              ")"
+            ],
+            "formatString": "\\$#,0,,\"M\"",
+            "displayFolder": "Flow",
+            "description": "Order value converting in the month, using the actual conversion date.",
+            "lineageTag": "b6822226-0117-4f96-ad33-c4672ae4d972"
+          },
+          {
+            "name": "Book to Bill",
+            "expression": "DIVIDE ( [Order Value], [Converted $] )",
+            "formatString": "0.00",
+            "displayFolder": "Flow",
+            "description": "Booked over converted. Above 1.0 the book is growing.",
+            "lineageTag": "1cbef52a-43bd-4996-8162-16a61d12f74f"
+          },
+          {
+            "name": "Requirement P50",
+            "expression": [
+              "CALCULATE ( SUM ( fact_forecast[p50] ),",
+              "    fact_forecast[scope] = \"TOTAL\", fact_forecast[layer] = \"all\" )"
+            ],
+            "formatString": "\\$#,0,,\"M\"",
+            "displayFolder": "Forecast",
+            "description": "Median forward material requirement.",
+            "lineageTag": "47299e65-2d05-437c-875e-ae0887086fd8"
+          },
+          {
+            "name": "Requirement P10",
+            "expression": [
+              "CALCULATE ( SUM ( fact_forecast[p10] ),",
+              "    fact_forecast[scope] = \"TOTAL\", fact_forecast[layer] = \"all\" )"
+            ],
+            "formatString": "\\$#,0,,\"M\"",
+            "displayFolder": "Forecast",
+            "description": "Low end of the stated 80% interval.",
+            "lineageTag": "1f2841dc-e60f-4071-a8af-b415693b3777"
+          },
+          {
+            "name": "Requirement P90",
+            "expression": [
+              "CALCULATE ( SUM ( fact_forecast[p90] ),",
+              "    fact_forecast[scope] = \"TOTAL\", fact_forecast[layer] = \"all\" )"
+            ],
+            "formatString": "\\$#,0,,\"M\"",
+            "displayFolder": "Forecast",
+            "description": "High end of the stated 80% interval.",
+            "lineageTag": "791b6a3c-e31d-4fad-b71b-0ff69ae89857"
+          },
+          {
+            "name": "Interval Width",
+            "expression": "[Requirement P90] - [Requirement P10]",
+            "formatString": "\\$#,0,,\"M\"",
+            "displayFolder": "Forecast",
+            "description": "Width of the stated 80% interval.",
+            "lineageTag": "d05ba02f-353c-4166-974a-b50b2372d55f"
+          },
+          {
+            "name": "Firm Share",
+            "expression": [
+              "VAR Firm =",
+              "    CALCULATE ( SUM ( fact_forecast[p50] ),",
+              "        fact_forecast[scope] = \"TOTAL\", fact_forecast[layer] = \"firm\" )",
+              "RETURN DIVIDE ( Firm, [Requirement P50] )"
+            ],
+            "formatString": "0%",
+            "displayFolder": "Forecast",
+            "description": "Share of the month's requirement already on booked orders.",
+            "lineageTag": "b75f38e9-d199-41c3-b533-6d7fd13241cd"
+          },
+          {
+            "name": "Sum of Regional P90",
+            "expression": [
+              "CALCULATE (",
+              "    SUM ( fact_forecast[p90] ),",
+              "    REMOVEFILTERS ( fact_forecast[scope] ),",
+              "    fact_forecast[scope] IN { \"North America\", \"EMEA\", \"APAC\", \"LATAM\" },",
+              "    fact_forecast[layer] = \"all\"",
+              ")"
+            ],
+            "formatString": "\\$#,0,,\"M\"",
+            "displayFolder": "Forecast",
+            "description": "Adding the four regional P90s together.",
+            "lineageTag": "e92eed9d-49fb-4087-ad46-fd151c77c3a1"
+          },
+          {
+            "name": "Quantile Overstatement %",
+            "expression": "DIVIDE ( [Sum of Regional P90] - [Requirement P90], [Requirement P90] )",
+            "formatString": "0.0%",
+            "displayFolder": "Forecast",
+            "description": "How much adding regional worst cases overstates the portfolio worst case. Quantiles do not add: the regions do not all run late in the same month. The gap is material that would be bought and not needed.",
+            "lineageTag": "ad572d85-8de6-496a-810f-b13b13831a53"
+          },
+          {
+            "name": "Slip P50",
+            "expression": [
+              "PERCENTILEX.INC (",
+              "    FILTER ( fact_orders, fact_orders[cancelled] = FALSE ),",
+              "    fact_orders[slip_months], 0.5",
+              ")"
+            ],
+            "formatString": "0.0",
+            "displayFolder": "Slip",
+            "description": "Median schedule slip, in months.",
+            "lineageTag": "04c541d5-1c10-470c-af60-34a9a01e6a79"
+          },
+          {
+            "name": "Slip P90",
+            "expression": [
+              "PERCENTILEX.INC (",
+              "    FILTER ( fact_orders, fact_orders[cancelled] = FALSE ),",
+              "    fact_orders[slip_months], 0.9",
+              ")"
+            ],
+            "formatString": "0.0",
+            "displayFolder": "Slip",
+            "description": "90th percentile schedule slip. The number a commitment horizon is set on.",
+            "lineageTag": "90b0ee43-44cb-46bf-84ff-816e81bc59fd"
+          },
+          {
+            "name": "Regional Blend P90",
+            "expression": [
+              "VAR Rgn = SELECTEDVALUE ( dim_market[region] )",
+              "RETURN",
+              "CALCULATE (",
+              "    [Slip P90],",
+              "    REMOVEFILTERS ( dim_market ),",
+              "    dim_market[region] = Rgn",
+              ")"
+            ],
+            "formatString": "0.0",
+            "displayFolder": "Slip",
+            "description": "The same P90 computed at region level. Where a region holds more than one market it describes neither of them: APAC blends Australia and India into a figure that runs early on one and late on the other.",
+            "lineageTag": "fa26f92e-7bb6-4e54-ac8b-aac8eb1b156e"
+          },
+          {
+            "name": "Blend Gap",
+            "expression": "[Slip P90] - [Regional Blend P90]",
+            "formatString": "+0.0;-0.0",
+            "displayFolder": "Slip",
+            "description": "Months between a market's own P90 and the regional figure it would be planned on.",
+            "lineageTag": "7a949ee0-d6ce-4128-bfaf-457884c560de"
+          },
+          {
+            "name": "Expected MW",
+            "expression": "SUM ( fact_lookback[expected_mw] )",
+            "formatString": "#,0.0",
+            "displayFolder": "Realization",
+            "description": "MW the order book expected to convert.",
+            "lineageTag": "95e8d417-bd0f-45c9-bb88-c439f9b41773"
+          },
+          {
+            "name": "Actual MW",
+            "expression": "SUM ( fact_lookback[actual_mw] )",
+            "formatString": "#,0.0",
+            "displayFolder": "Realization",
+            "description": "MW that actually converted.",
+            "lineageTag": "3a55f88a-ae9a-4255-ba29-931bb0285715"
+          },
+          {
+            "name": "Realization Rate",
+            "expression": "DIVIDE ( [Actual MW], [Expected MW] )",
+            "formatString": "0.0%",
+            "displayFolder": "Realization",
+            "description": "Measured, not assumed. This is the number a planning cycle usually picks.",
+            "lineageTag": "e7082d02-4884-403b-835f-a559e77ab9c7"
+          },
+          {
+            "name": "Bias MW",
+            "expression": "SUM ( fact_lookback[bias_mw] )",
+            "formatString": "+#,0.0;-#,0.0",
+            "displayFolder": "Realization",
+            "description": "Actual minus expected, in MW.",
+            "lineageTag": "a90d7eb6-4ce8-4f4f-a4a9-c17b2f184a03"
+          },
+          {
+            "name": "Cumulative Bias MW",
+            "expression": [
+              "CALCULATE (",
+              "    [Bias MW],",
+              "    dim_date[date] <= MAX ( dim_date[date] ),",
+              "    REMOVEFILTERS ( dim_date )",
+              ")"
+            ],
+            "formatString": "+#,0.0;-#,0.0",
+            "displayFolder": "Realization",
+            "description": "Running total of bias. A region with persistent drift shows here as a line that does not return to zero.",
+            "lineageTag": "1dc52b6f-6849-40d7-b617-947b71b7ac6f"
+          },
+          {
+            "name": "Realization Assumption",
+            "expression": "SELECTEDVALUE ( 'Realization Scenario'[Realization Scenario], 0.85 )",
+            "formatString": "0%",
+            "displayFolder": "Scenario",
+            "description": "The rate selected on the slider.",
+            "lineageTag": "25967bce-5277-482a-987a-c1474a77086f"
+          },
+          {
+            "name": "Material at Assumption",
+            "expression": "[Open Backlog Material] * [Realization Assumption]",
+            "formatString": "\\$#,0,,\"M\"",
+            "displayFolder": "Scenario",
+            "description": "Material implied by the chosen realization rate.",
+            "lineageTag": "7096f065-2e5e-4798-aaa0-fe530f449c26"
+          },
+          {
+            "name": "Exposure vs Full Commit",
+            "expression": "[Open Backlog Material] - [Material at Assumption]",
+            "formatString": "\\$#,0,,\"M\"",
+            "displayFolder": "Scenario",
+            "description": "Distance between committing against the whole book and committing against the assumption. This is the exposure the assumption controls.",
+            "lineageTag": "d5ee86da-7924-4c12-a1ca-db939ab87424"
+          },
+          {
+            "name": "Forecasts Scored",
+            "expression": "COUNTROWS ( fact_coverage )",
+            "formatString": "#,0",
+            "displayFolder": "Coverage",
+            "description": "Walk-forward forecasts scored against what the month turned out to be.",
+            "lineageTag": "53368524-a469-4d11-bc94-a8e778274e01"
+          },
+          {
+            "name": "Distinct Outcome Months",
+            "expression": "DISTINCTCOUNT ( fact_coverage[month] )",
+            "formatString": "#,0",
+            "displayFolder": "Coverage",
+            "description": "Overlapping six-month windows score the same month up to six times, so this is well below the number of forecasts. It is the effective sample size, and the reason no correction is fitted to the interval.",
+            "lineageTag": "7cc5888b-c5ff-4ec8-9502-0d1d5f80202e"
+          },
+          {
+            "name": "Coverage 80%",
+            "expression": "DIVIDE ( SUM ( fact_coverage[inside_80] ), [Forecasts Scored] )",
+            "formatString": "0.0%",
+            "displayFolder": "Coverage",
+            "description": "Share of forecasts the stated 80% interval contained.",
+            "lineageTag": "ac188a74-f904-49e1-a20b-498581c8a719"
+          },
+          {
+            "name": "Coverage 50%",
+            "expression": "DIVIDE ( SUM ( fact_coverage[inside_50] ), [Forecasts Scored] )",
+            "formatString": "0.0%",
+            "displayFolder": "Coverage",
+            "description": "Share the stated 50% interval contained.",
+            "lineageTag": "a0c07c3b-a144-4bc7-86ff-6a9d01be2fcd"
+          },
+          {
+            "name": "Misses High",
+            "expression": [
+              "CALCULATE ( COUNTROWS ( fact_coverage ),",
+              "    FILTER ( fact_coverage, fact_coverage[actual] > fact_coverage[p90] ) )"
+            ],
+            "formatString": "#,0",
+            "displayFolder": "Coverage",
+            "description": "Outcomes above the interval.",
+            "lineageTag": "81c7faa6-fdef-419c-ba3f-db5920e34610"
+          },
+          {
+            "name": "Misses Low",
+            "expression": [
+              "CALCULATE ( COUNTROWS ( fact_coverage ),",
+              "    FILTER ( fact_coverage, fact_coverage[actual] < fact_coverage[p10] ) )"
+            ],
+            "formatString": "#,0",
+            "displayFolder": "Coverage",
+            "description": "Outcomes below the interval.",
+            "lineageTag": "3c81ead4-ce16-4716-904b-c0cf040d3528"
+          },
+          {
+            "name": "Median Error",
+            "expression": "MEDIAN ( fact_coverage[error] )",
+            "formatString": "\\$#,0,,\"M\"",
+            "displayFolder": "Coverage",
+            "description": "Median of actual minus P50. Near zero can hide a front end that runs low early and high late, because the halves cancel.",
+            "lineageTag": "8d3631d5-ce97-44d2-8715-7cc9751a56e8"
+          },
+          {
+            "name": "Mean Error",
+            "expression": "AVERAGE ( fact_coverage[error] )",
+            "formatString": "\\$#,0,,\"M\"",
+            "displayFolder": "Coverage",
+            "description": "Mean of actual minus P50.",
+            "lineageTag": "d350ba8a-7702-4032-b818-b0774d0c9677"
+          }
+        ]
+      }
+    ],
+    "relationships": [
+      {
+        "name": "orders_booked_date",
+        "fromTable": "fact_orders",
+        "fromColumn": "booked_key",
+        "toTable": "dim_date",
+        "toColumn": "date",
+        "isActive": true,
+        "crossFilteringBehavior": "oneDirection",
+        "fromCardinality": "many",
+        "toCardinality": "one"
+      },
+      {
+        "name": "orders_expected_date",
+        "fromTable": "fact_orders",
+        "fromColumn": "expected_key",
+        "toTable": "dim_date",
+        "toColumn": "date",
+        "isActive": false,
+        "crossFilteringBehavior": "oneDirection",
+        "fromCardinality": "many",
+        "toCardinality": "one"
+      },
+      {
+        "name": "orders_actual_date",
+        "fromTable": "fact_orders",
+        "fromColumn": "actual_key",
+        "toTable": "dim_date",
+        "toColumn": "date",
+        "isActive": false,
+        "crossFilteringBehavior": "oneDirection",
+        "fromCardinality": "many",
+        "toCardinality": "one"
+      },
+      {
+        "name": "orders_market",
+        "fromTable": "fact_orders",
+        "fromColumn": "market",
+        "toTable": "dim_market",
+        "toColumn": "market_key",
+        "isActive": true,
+        "crossFilteringBehavior": "oneDirection",
+        "fromCardinality": "many",
+        "toCardinality": "one"
+      },
+      {
+        "name": "forecast_date",
+        "fromTable": "fact_forecast",
+        "fromColumn": "date_key",
+        "toTable": "dim_date",
+        "toColumn": "date",
+        "isActive": true,
+        "crossFilteringBehavior": "oneDirection",
+        "fromCardinality": "many",
+        "toCardinality": "one"
+      },
+      {
+        "name": "coverage_date",
+        "fromTable": "fact_coverage",
+        "fromColumn": "date_key",
+        "toTable": "dim_date",
+        "toColumn": "date",
+        "isActive": true,
+        "crossFilteringBehavior": "oneDirection",
+        "fromCardinality": "many",
+        "toCardinality": "one"
+      },
+      {
+        "name": "coverage_cutoff",
+        "fromTable": "fact_coverage",
+        "fromColumn": "cutoff_key",
+        "toTable": "dim_date",
+        "toColumn": "date",
+        "isActive": false,
+        "crossFilteringBehavior": "oneDirection",
+        "fromCardinality": "many",
+        "toCardinality": "one"
+      },
+      {
+        "name": "lookback_date",
+        "fromTable": "fact_lookback",
+        "fromColumn": "date_key",
+        "toTable": "dim_date",
+        "toColumn": "date",
+        "isActive": true,
+        "crossFilteringBehavior": "oneDirection",
+        "fromCardinality": "many",
+        "toCardinality": "one"
+      },
+      {
+        "name": "lookback_market",
+        "fromTable": "fact_lookback",
+        "fromColumn": "market",
+        "toTable": "dim_market",
+        "toColumn": "market_key",
+        "isActive": true,
+        "crossFilteringBehavior": "oneDirection",
+        "fromCardinality": "many",
+        "toCardinality": "one"
+      }
+    ],
+    "expressions": [],
+    "annotations": [
+      {
+        "name": "PBI_QueryOrder",
+        "value": "[\"dim_date\", \"dim_market\", \"fact_orders\", \"fact_forecast\", \"fact_coverage\", \"fact_lookback\"]"
+      },
+      {
+        "name": "PBI_ProTooling",
+        "value": "[\"DevMode\"]"
+      }
+    ]
+  }
+}
