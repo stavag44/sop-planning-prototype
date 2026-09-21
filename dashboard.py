@@ -489,6 +489,11 @@ def main() -> None:
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Monthly S&amp;OP demand and material review</title>
+<!-- Inline SVG favicon. Without one the browser requests /favicon.ico, gets a
+     404, and the tab falls back to a generic page icon, which is the wrong
+     first impression for something opened next to twenty other tabs. A data
+     URI keeps the page at zero external requests. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23111827'/%3E%3Crect x='6' y='17' width='4' height='9' fill='%23fe5000'/%3E%3Crect x='12.5' y='12' width='4' height='14' fill='%23fe5000'/%3E%3Crect x='19' y='7' width='4' height='19' fill='%23fe5000'/%3E%3C/svg%3E">
 <style>
   :root {{ --orange:{ORANGE}; --dark:{DARK}; --ink:{INK}; --subtle:{SUBTLE};
            --muted:{MUTED}; --line:{BORDER}; --surface:{SURFACE}; }}
