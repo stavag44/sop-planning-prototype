@@ -125,7 +125,9 @@ M = [
     # actual_key is not one. FILTER keeps market context from dim_market while
     # the as-of logic is applied per row.
     ("Open Backlog $",
-     "VAR AsOf = MAX ( dim_date[date] )\n"
+     "VAR LastBooked =\n"
+     "    CALCULATE ( MAX ( fact_orders[booked_key] ), REMOVEFILTERS ( dim_date ) )\n"
+     "VAR AsOf = MIN ( MAX ( dim_date[date] ), LastBooked )\n"
      "RETURN\n"
      "CALCULATE (\n"
      "    SUMX (\n"
@@ -142,12 +144,17 @@ M = [
      ")", "\\$#,0,,\"M\"", "Backlog",
      "Booked on or before the date, not cancelled, not yet converted. Cancelled "
      "orders are excluded from both sides; leaving them in the booked side "
-     "overstates backlog permanently, since they never convert."),
+     "overstates backlog permanently, since they never convert. The as-of date "
+     "clamps to the last booked month: dim_date has to run out to 2028 to cover "
+     "conversions, and an unfiltered MAX over it asked for backlog as of a date "
+     "two years past the end of the book, which nothing satisfies."),
     ("Open Backlog Material",
      "[Open Backlog $] * 0.5", "\\$#,0,,\"M\"", "Backlog",
      "Material value of open backlog."),
     ("Material at Risk",
-     "VAR AsOf = MAX ( dim_date[date] )\n"
+     "VAR LastBooked =\n"
+     "    CALCULATE ( MAX ( fact_orders[booked_key] ), REMOVEFILTERS ( dim_date ) )\n"
+     "VAR AsOf = MIN ( MAX ( dim_date[date] ), LastBooked )\n"
      "RETURN\n"
      "CALCULATE (\n"
      "    SUMX (\n"
