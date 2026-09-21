@@ -81,6 +81,53 @@ def title(ws, text):
     ws["A1"].font = title_font
 
 
+def note(ws, row, col, text):
+    """Write an explanatory note into a cell, as text.
+
+    openpyxl turns any string starting with '=' into a formula. A column note
+    written as "= high - low, the width of the interval" therefore reached Excel
+    as a formula, Excel could not parse the English, and it refused to open the
+    whole workbook without naming the cell. Three notes were written that way.
+
+    So: strip a leading '=' and pin the cell to text. Prefer calling this over
+    ws.cell(...) for anything prose.
+    """
+    text = str(text).lstrip()
+    if text.startswith("="):
+        text = text[1:].lstrip()
+    c = ws.cell(row=row, column=col)
+    c.value = text
+    c.data_type = "s"
+    c.font = note_font
+    return c
+
+
+def audit(wb) -> None:
+    """Refuse to save a workbook Excel will not open.
+
+    Excel rejects the whole file when any cell holds an unparseable formula, and
+    the error names no cell, so this has to be caught here. The trap is prose:
+    a string beginning with '=' is stored as a formula, and "= high - low, the
+    width of the stated 80% interval" is not one.
+    """
+    import re as _re
+
+    real = _re.compile(r"^\s*(?:[A-Z][A-Z0-9._]*\(|[A-Z]{1,3}\$?\d+|\$[A-Z]|\(|'[^']+'!|[-+]?\d)")
+    bad = []
+    for ws in wb.worksheets:
+        for row in ws.iter_rows():
+            for c in row:
+                v = c.value
+                if isinstance(v, str) and v.startswith("=") and not real.match(v[1:]):
+                    bad.append((ws.title, c.coordinate, v[:70]))
+    if bad:
+        print("REFUSING TO SAVE: %d cell(s) hold prose stored as a formula." % len(bad))
+        for sheet_name, addr, txt in bad:
+            print("   %-18s %-6s %r" % (sheet_name, addr, txt))
+        print("   Use note(ws, row, col, text) for prose.")
+        raise SystemExit(1)
+
+
 def main() -> None:
     orders = pd.read_csv(os.path.join(DATA, "orders.csv"),
                          parse_dates=["booked_month", "expected_conversion",
@@ -171,9 +218,10 @@ def main() -> None:
             "material_committed", "expected_conversion", "actual_conversion",
             "slip_months", "slip_check_from_dates", "status", "material_at_risk"]
     header(ws, 4, cols, [12, 15, 15, 9, 14, 16, 18, 18, 12, 18, 13, 15])
-    ws.cell(row=3, column=6, value="= order_value x material rate").font = note_font
-    ws.cell(row=3, column=10, value="= whole months between expected and actual, "
-                                    "a check on the supplied slip").font = note_font
+    note(ws, 3, 6, "order_value x material rate")
+    note(ws, 3, 10, "whole months between expected and actual. Built from the dates, so it "
+                    "differs from column I by up to half a month: actual_conversion rounds "
+                    "the slip to whole months and column I does not.")
     for i in range(n):
         r = 5 + i
         src = 5 + i
@@ -364,8 +412,7 @@ def main() -> None:
                    "expected total ($)", "low (P10)", "high (P90)",
                    "spread", "firm share"],
            [12, 18, 18, 17, 14, 14, 12, 12])
-    ws.cell(row=3, column=7, value="= high - low, the width of the stated 80% interval"
-            ).font = note_font
+    note(ws, 3, 7, "spread = high minus low, the width of the stated 80% interval")
     for i in range(len(band)):
         r = 5 + i
         b = band.iloc[i]
@@ -492,6 +539,7 @@ def main() -> None:
         for j in range(1, 6):
             ws.cell(row=r, column=j).border = box
 
+    audit(wb)
     wb.save(OUT)
     print("wrote", OUT)
     print("orders: %d   sheets: %d" % (n, len(wb.sheetnames)))
