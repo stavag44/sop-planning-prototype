@@ -141,8 +141,7 @@ def fig_forward(mc: pd.DataFrame) -> go.Figure:
     # Uncertainty as bounding lines rather than another translucent fill. Two
     # stacked areas plus two shaded bands turns the whole plot to mud and buries
     # the composition, which is the thing worth seeing here.
-    lo = t.cal80_lo if ("cal80_lo" in t and t.cal80_lo.notna().any()) else t.p10
-    hi = t.cal80_hi if ("cal80_hi" in t and t.cal80_hi.notna().any()) else t.p90
+    lo, hi = t.p10, t.p90
     fig.add_trace(go.Scatter(x=V(x), y=V(hi / 1e6), mode="lines",
                              line=dict(color=INK, width=1.2, dash="dot"),
                              name="80% interval",
@@ -366,13 +365,16 @@ def fig_coverage(by_h: pd.DataFrame) -> go.Figure:
     fig.add_trace(go.Bar(
         x=[f"+{int(o)}" for o in by_h.offset], y=V(by_h.covered),
         marker_color=[ACCENT if c < 80 else DARK for c in by_h.covered],
-        text=[f"{c:.0f}%" for c in by_h.covered], textposition="outside",
-        hovertemplate="month %{x}: %{y:.0f}% covered<extra></extra>"))
+        text=[f"{c:g}%" for c in by_h.covered], textposition="outside",
+        hovertemplate="month %{x}: %{y}% covered, 8 forecasts<extra></extra>"))
     fig.add_hline(y=80, line=dict(color=MUTED, width=1.4, dash="dot"),
                   annotation_text="stated 80%", annotation_position="top left",
                   annotation_font=dict(size=10, color=MUTED))
     fig.update_yaxes(title_text="% of forecasts inside the interval", range=[0, 112])
-    fig.update_xaxes(title_text="months ahead")
+    # n on the axis, not just in the hover. Six proportions drawn as solid bars
+    # read as more precise than eight observations each can support, and the three
+    # 100% bars have a lower bound near the two coloured as failures.
+    fig.update_xaxes(title_text="months ahead  (8 forecasts per bar)")
     return base_layout(fig, 340, legend=False)
 
 
@@ -433,6 +435,11 @@ def main() -> None:
     worst_h, worst_h_cov = int(stats["worst_h"]), float(stats["worst_h_cov"])
     best_h = float(stats["best_h_cov"])
     overstatement = float(stats["overstatement"])
+    worst_signs = str(stats["worst_signs"])
+    half_n = len(worst_signs) // 2
+    worst_first_abs = abs(float(stats["worst_first"])) / 1e6
+    worst_last = abs(float(stats["worst_last"])) / 1e6
+    p_runs_pct = float(stats["worst_p_runs"]) * 100
 
     open_material = monthly[monthly.month == monthly.month.max()].committed_material.sum()
 
@@ -443,7 +450,14 @@ def main() -> None:
     open_book = orders[(orders.booked_month <= cutoff) & (~orders.cancelled)
                        & ((orders.actual_conversion.isna())
                           | (orders.actual_conversion > cutoff))]
-    at_risk = open_book[open_book.slip_months >= 2].material_committed.sum()
+    # Observable at the cutoff, not in hindsight. slip_months is the slip the order
+    # eventually realised, which nobody standing at the cutoff could know. Filtering
+    # on it put $44.9M of orders that were not yet even due into a tile labelled as
+    # already slipped, and made the number 3.8x what a planner could have produced
+    # that month. The whole page is built on using only what was known at the time;
+    # the KPI row was the one place that broke it.
+    at_risk = open_book[open_book.expected_conversion <= cutoff].material_committed.sum()
+    n_at_risk = int((open_book.expected_conversion <= cutoff).sum())
 
     firm_share_all = (firm_t.p50.to_numpy() / t.p50.to_numpy())
     months_half_firm = int((firm_share_all >= 0.5).sum())
@@ -463,7 +477,11 @@ def main() -> None:
         "lookback": fig_lookback(lookback),
         "coverage": fig_coverage(by_h),
     }
-    html = {k: v.to_html(full_html=False, include_plotlyjs=("cdn" if k == "forward" else False),
+    # Inlined, not "cdn". The page gets opened on a corporate laptop or from an
+    # email attachment, and a blocked CDN renders seven empty boxes with no error.
+    # check_render.py proves the traces carry data; it cannot prove the page paints
+    # on someone else's machine. ~3.5MB is the price of it always working.
+    html = {k: v.to_html(full_html=False, include_plotlyjs=(True if k == "forward" else False),
                          config={"displayModeBar": False, "responsive": True})
             for k, v in figs.items()}
 
@@ -607,7 +625,7 @@ def main() -> None:
   <div class="kpi"><div class="v">{months_half_firm} months</div>
     <div class="l">at least half covered by booked orders</div></div>
   <div class="kpi"><div class="v">${at_risk/1e6:,.0f}M</div>
-    <div class="l">of that, on open orders that have slipped</div></div>
+    <div class="l">of that, on {n_at_risk} orders already past their promised date</div></div>
 </div>
 
 <section id="s1">
@@ -618,9 +636,9 @@ def main() -> None:
   {html['forward']}
   <p class="note">The mix changes across the horizon. Next month is {firm_first:.0f}% firm; twelve
   months out it is {firm_last:.0f}%. That is why the band widens from ${spread_first:.0f}M to
-  ${spread_last:.0f}M, and it is the reason a single confidence level across the whole horizon
-  does not work. The near months can be committed against; the far months are a forecast with a
-  measured error rate.</p>
+  ${spread_last:.0f}M: the far months are mostly demand from orders nobody has placed yet. The
+  obvious inference is that the near months are therefore the safe ones to commit against.
+  Section 6 tests that against eight past cutoffs and finds the opposite.</p>
 </section>
 
 <section id="s2">
@@ -686,21 +704,28 @@ def main() -> None:
   {html['coverage']}
   <p class="note">Across {n_obs} month-forecasts the stated 80% interval contained the outcome
   {cov_all:.0f}% of the time, and the stated 50% interval {cov_50:.0f}%. {miss_high} misses fell
-  above the range and {miss_low} below. The interval is wider than it needs to be rather than
-  overconfident, which is the safer direction but still means committed material is being held
-  against uncertainty that is not there.</p>
-  <p class="note">The near months are the weak ones. Month +{worst_h} covers {worst_h_cov:.0f}%
-  against {best_h:.0f}% further out, which is the opposite of what most people expect and is worth
-  knowing before anyone commits against month one.</p>
+  above the range and {miss_low} below. Both sit above nominal, which is the safe direction, but
+  those {n_obs} forecasts cover only {n_months} distinct months, and on {n_months} months neither
+  gap is distinguishable from chance. The interval is not demonstrably too wide. It is
+  demonstrably not too narrow, which is the claim worth making.</p>
+  <p class="note">The one result here that does clear that bar is the shape. Month +{worst_h}
+  covers {worst_h_cov:g}% against {best_h:g}% from three months out, the opposite of what most
+  people expect, and the reason is not noise. Sorted by cutoff, the month +{worst_h} error runs
+  {worst_signs}: the {half_n} earliest cutoffs forecast high by ${worst_first_abs:.1f}M on average
+  and the {half_n} most recent forecast low by ${worst_last:.1f}M. That is a front end drifting in
+  one direction, not scatter, and a run that clean turns up by chance about {p_runs_pct:.0f}% of
+  the time. A drifting near month is a tracking-signal problem with a known fix. A wide near month
+  would not be. They look identical in a coverage number, which is why the horizon breakdown is on
+  the page at all.</p>
   <p class="note"><strong>No correction is applied to these intervals, deliberately.</strong>
-  Adjusting an interval to hit its stated coverage is a standard technique and I built it, then
-  took it out. {n_cutoffs} cutoffs over six months produce {n_obs} observations but only
-  {n_months} distinct outcome months, because overlapping windows score the same month repeatedly.
-  Split across six forecast horizons that leaves about five points each, and the arithmetic needs
-  at least six to construct an 80% bound at all, so what comes out is the range of five points
-  wearing the label. It would have looked like method and meant nothing. Roughly two years of
-  retained forecasts is the point at which it starts to, which is the same prerequisite as
-  everything else on this page.</p>
+  Rescaling an interval to hit its stated coverage is standard, and the reason not to here is not
+  that {n_obs} is too few. It is that {n_obs} overlapping forecasts are not {n_obs} independent
+  ones: a six-month window scores each outcome month from up to six different cutoffs, which is
+  why {n_obs} forecasts cover {n_months} months. Conformal calibration assumes those scores are
+  exchangeable. Scores that share an outcome month are not, and without that assumption the
+  guarantee fails at any sample size, so more cutoffs cut this way would not buy it back.
+  Non-overlapping windows would, at roughly two years of retained forecasts, which is the same
+  prerequisite as everything else on this page.</p>
 </section>
 
 <section id="sEXC">

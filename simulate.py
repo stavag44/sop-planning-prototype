@@ -6,7 +6,8 @@ from public Nextracker filings and public role titles. Everything else, especial
 the project slippage behaviour, is invented to demonstrate a method. None of it is
 a representation of Nextpower's actual business.
 
-Generates 24 months of project-level bookings across five regions, each with its own
+Generates 24 months of project-level bookings across four regions and six markets,
+each market with its own
 schedule-slippage distribution, then derives the series a monthly S&OP cycle needs:
 committed material, coverage against the steel commitment horizon, realised vs
 expected conversion, and per-order exceptions.
@@ -29,7 +30,7 @@ RNG = np.random.default_rng(20260920)
 START = pd.Timestamp("2024-01-01")
 MONTHS = 24
 HORIZON_WEEKS = 18          # midpoint of the 16-20 week steel commitment window
-MATERIAL_RATE = 0.50        # see note below
+MATERIAL_RATE = 0.50        # share of order value committed as material
 
 # Four top-level regions, each matching a role title found publicly at the company:
 # North America (Sr. Director Operations), EMEA (Director), LATAM, APAC (VP, SCM).

@@ -20,5 +20,5 @@ next 12 months, material required ($M)
 2026-12-01   8.9      22.9 24.4 32.2 42.0    17.6    28.0
 
 sum of per-region P90 overstates portfolio P90 by 15.9%
-stated 80% interval realised coverage: 88% over 48 forecasts, 13 distinct months
+stated 80% interval realised coverage: 90% over 48 forecasts, 13 distinct months
 weakest horizon: month +1 at 62%

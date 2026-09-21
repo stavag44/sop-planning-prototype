@@ -3,7 +3,9 @@
 A working demonstration of a monthly demand and material review for a project-based
 manufacturing business, built on simulated data.
 
-Open `index.html` in a browser. The page is self-contained apart from the Plotly library.
+Open `index.html` in a browser. The page is fully self-contained: Plotly is inlined, so
+it renders offline and behind a proxy that blocks third-party CDNs. That is most of the
+file size.
 
 ## What this is
 
@@ -60,21 +62,43 @@ six months of forecast that follow each cutoff are scored against what the month
 out to be. It ignores what the model claims about its own uncertainty and measures what
 actually fell inside the stated range.
 
-In this run the stated 80% interval contained the outcome 87.5% of the time across 48
-scored forecasts, and the stated 50% interval contained it 68.75% of the time. Of the
-misses, 4 fell above the interval and 2 below. Broken out by how far ahead the call was
-made, coverage is weakest one month out at 62.5% and sits at or above 87.5% from three
-months out. That is the reverse of the usual shape. Near-in months are carried by a
-handful of large orders, and one of them moving is enough to put the month outside the
-band.
+In this run the stated 80% interval contained the outcome 89.6% of the time across 48
+scored forecasts, and the stated 50% interval contained it 72.9%. Of the misses, 3 fell
+above the interval and 2 below. Both figures sit above nominal, but those 48 forecasts
+cover only 13 distinct months, and against 13 effective observations neither gap is
+distinguishable from chance. The interval is not demonstrably too wide; it is
+demonstrably not too narrow.
+
+Two limits on what the test covers, both stated on the page as well. It scores the
+booked backlog only, because pipeline demand at a past cutoff cannot be checked against
+the order book, and the published chart runs to twelve months where pipeline is most of
+the median. And it runs at the same 4,000 draws as the published forecast rather than a
+cheaper simulation, which it used to; at 800 draws two of the misses sat inside the
+simulation's own noise.
+
+Broken out by how far ahead the call was made, coverage is weakest one month out at
+62.5% and sits at 100% from three months out. That is the reverse of the usual shape,
+and the cause is drift rather than scatter. Sorted by cutoff, the month +1 error runs
+`----++++`: the four earliest cutoffs forecast high by $2.8M on average and the four
+most recent forecast low by $4.0M. A run that clean turns up by chance about 2.9% of
+the time. The published median error at that horizon is near zero only because the two
+halves cancel. A drifting front month is a tracking-signal problem with a known fix; a
+wide front month would not be, and the two are indistinguishable in a coverage number.
 
 There is no fitted correction here, and that is a decision rather than an omission. An
-earlier version ran a split-conformal step to rescale the interval. With 48 scored
-forecasts spread across six horizons it had roughly five observations per horizon to
-estimate a quantile from, which is below what the method needs to be valid, and its
-answer swung from 1.53x to 0.66x across three runs of the same pipeline. That is noise,
-not a finding. Measuring coverage and reporting it is the part the sample supports.
-Correcting on it would need about two years of retained forecasts.
+earlier version ran a split-conformal step to rescale the interval. The reason for
+removing it is not the sample count: 48 forecasts across six horizons is 8 per horizon,
+which is enough to construct an 80% bound. The reason is that the 48 are not 48
+independent observations. A six-month window scores each outcome month from as many as
+six different cutoffs, which is why 48 forecasts cover 13 months. Conformal calibration
+assumes the calibration scores are exchangeable, scores sharing an outcome month are
+not, and without exchangeability the guarantee fails at any sample size. More cutoffs
+cut this way would not buy it back. Non-overlapping windows would, at roughly two years
+of retained forecasts.
+
+(The earlier version's multiplier also moved from 1.53x to 0.66x as the pipeline was
+revised across versions. Both RNGs are seeded, so a given version reproduces exactly;
+the movement was across versions, not across runs of one.)
 
 ## The Excel workbook
 
@@ -122,7 +146,5 @@ so the figures reproduce.
 | `check_render.py` | fails the build if any chart carries no data |
 | `data/` | generated CSVs, regenerable from the scripts |
 | `index.html` | the dashboard |
-
-Plotly loads from a CDN, so the page needs a network connection to render.
 
 Brendan Meara

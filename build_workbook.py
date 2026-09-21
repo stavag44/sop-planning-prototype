@@ -334,7 +334,8 @@ def main() -> None:
     for region in REGIONS:
         ws.cell(row=r, column=1, value=region).font = lab
         ws.cell(row=r, column=2, value=(
-            f"=SUMIFS({R_VAL},{R_REG},$A{r},{R_BOOK},\"<=\"&DATE({lastm.year},{lastm.month},1))"
+            f"=SUMIFS({R_VAL},{R_REG},$A{r},{R_BOOK},\"<=\"&DATE({lastm.year},{lastm.month},1),"
+            f"{R_CAN},FALSE)"
             f"-SUMIFS({R_VAL},{R_REG},$A{r},{R_ACT},\"<=\"&DATE({lastm.year},{lastm.month},1),"
             f"{R_CAN},FALSE)")).number_format = "#,##0"
         for j, rate in enumerate(rates):
@@ -421,10 +422,14 @@ def main() -> None:
     s = lastr + 3
     ws.cell(row=s, column=1, value="What the test measures").font = sec_font
     ws.cell(row=s + 1, column=1, value=(
-        "Eight cutoffs, six months forward from each. That is 48 scored forecasts but only 13 "
-        "distinct outcome months, because overlapping windows score the same month more than "
-        "once. Everything below is measurement. No multiplier is fitted here and none is applied "
-        "to the forward tab, because a sample this size would not support one.")).font = note_font
+        "%d cutoffs, six months forward from each. That is %d scored forecasts but only %d "
+        "distinct outcome months, because a six-month window scores the same month from as many "
+        "as six cutoffs. Everything below is measurement. No multiplier is fitted here and none "
+        "is applied to the forward tab: conformal calibration assumes the scores are "
+        "exchangeable, scores sharing an outcome month are not, and without that the guarantee "
+        "fails at any sample size. This also scores the booked backlog only, since pipeline "
+        "demand at a past cutoff cannot be checked against the order book."
+        % (cov.cutoff.nunique(), len(cov), cov.month.nunique()))).font = note_font
     ws.merge_cells(start_row=s + 1, start_column=1, end_row=s + 2, end_column=9)
 
     rows_sum = [
@@ -450,16 +455,41 @@ def main() -> None:
     ws.cell(row=h, column=1, value="Coverage by how far ahead the call was made").font = sec_font
     ws.cell(row=h + 1, column=1, value=(
         "The interval is weakest one month out and holds further out, which is the reverse of "
-        "the usual shape. Near-in months are dominated by a handful of large orders, and a "
-        "single one moving is enough to put the month outside the band.")).font = note_font
+        "the usual shape. The cause is not scatter. Sorted by cutoff, the month +1 error runs in "
+        "one direction and then the other, shown in the second table: the early cutoffs forecast "
+        "high and the recent ones forecast low. That is drift in the front month, which a "
+        "tracking signal catches and a wider interval only masks.")).font = note_font
     ws.merge_cells(start_row=h + 1, start_column=1, end_row=h + 2, end_column=9)
     header(ws, h + 4, ["months ahead", "forecasts", "inside 80%"])
     for i, off in enumerate(sorted(cov.offset.unique())):
         r = h + 5 + i
         ws.cell(row=r, column=1, value=int(off))
         ws.cell(row=r, column=2, value=f"=COUNTIFS({AH},A{r})").number_format = "#,##0"
-        ws.cell(row=r, column=3, value=f"=AVERAGEIFS({IN80},{AH},A{r})").number_format = "0%"
+        # 0.0% not 0%: 62.5 formatted as 0% shows 63 in Excel and 62 on the page,
+        # because the two round half-values in opposite directions
+        ws.cell(row=r, column=3,
+                value=f"=AVERAGEIFS({IN80},{AH},A{r})").number_format = "0.0%"
         for j in range(1, 4):
+            ws.cell(row=r, column=j).border = box
+
+    # the drift itself, so an Excel reader can see it rather than take it on trust
+    worst = int(cov.groupby("offset").in_80.mean().idxmin())
+    w = cov[cov.offset == worst].sort_values("cutoff")
+    d = h + 5 + len(cov.offset.unique()) + 2
+    ws.cell(row=d, column=1,
+            value=f"Month +{worst} error by cutoff, in order").font = sec_font
+    header(ws, d + 2, ["cutoff", "actual ($)", "P50 ($)", "error ($)", "direction"])
+    for i in range(len(w)):
+        r = d + 3 + i
+        row = w.iloc[i]
+        src = 5 + int(cov.index.get_loc(row.name))
+        ws.cell(row=r, column=1, value=row.cutoff.date()).number_format = "yyyy-mm"
+        ws.cell(row=r, column=2, value=f"=D{src}").number_format = "#,##0"
+        ws.cell(row=r, column=3, value=f"=G{src}").number_format = "#,##0"
+        ws.cell(row=r, column=4, value=f"=B{r}-C{r}").number_format = "+#,##0;-#,##0"
+        ws.cell(row=r, column=5,
+                value=f'=IF(D{r}<0,"forecast high","forecast low")')
+        for j in range(1, 6):
             ws.cell(row=r, column=j).border = box
 
     wb.save(OUT)

@@ -11,7 +11,7 @@ Three layers, deliberately separated so the swappable one is obvious:
 
   1. SLIP MODEL      where each order's slip distribution comes from.
                      Here: empirical resampling from realised history, by region.
-                     In production: quantile regression conditioned on region,
+                     In production: quantile regression conditioned on market,
                      pipeline stage, interconnection status, developer, size.
                      Swap `EmpiricalSlipModel` for a fitted model, nothing else changes.
 
@@ -51,7 +51,10 @@ DATA = os.path.join(HERE, "data")
 # Layer 1: slip model. This is the piece you replace with a fitted model.
 # ----------------------------------------------------------------------------
 class EmpiricalSlipModel:
-    """Resamples observed slip, conditioned on region.
+    """Resamples observed slip, conditioned on market by default, not region.
+
+    The default is `group_col="market"` on purpose. Conditioning on region is what
+    hides India inside APAC and MENA inside EMEA, which is the finding in section 3.
 
     A fitted replacement would expose the same `sample(orders, rng)` interface and
     condition on more than region. Everything downstream is indifferent to which
@@ -230,18 +233,31 @@ def quantile_frame(months, draws, label) -> pd.DataFrame:
 
 
 # ----------------------------------------------------------------------------
-# Layer 3: calibration. Does a stated interval actually cover?
+# Layer 3: coverage. Does a stated interval actually cover?
 # ----------------------------------------------------------------------------
 def coverage_check(orders: pd.DataFrame, cutoffs, horizon: int = 6,
-                   n_sims: int = 800) -> pd.DataFrame:
+                   n_sims: int = N_SIMS) -> pd.DataFrame:
     """Walk-forward. At each historical cutoff, refit the slip model on what had
     actually converted by that date, simulate forward using only orders open then,
     and compare the realised material against the predicted interval.
 
     The refit matters. Fitting one model on the full history and reusing it at every
     past cutoff lets the earliest forecasts draw on slips that had not happened yet,
-    which flatters coverage. Holding out the conformal multiplier does not fix that,
-    because the multiplier sits on top of quantiles the model produced.
+    which flatters coverage.
+
+    Two limits on what this measures, both of which belong on the page rather than
+    only in here:
+
+    It scores the FIRM backlog only, because pipeline demand at a past cutoff is not
+    something the order book can be checked against. Inside this six-month horizon
+    that is nearly the whole number, but the published chart runs to twelve months,
+    where pipeline is most of the median. Coverage measured here does not transfer
+    to the back half of that chart.
+
+    It runs at the same draw count as the published forecast. It used to run at 800
+    against a published 4,000, which put two of the six misses inside the simulation's
+    own noise, and a coverage figure quoted to the percent has no business resting on
+    a cheaper simulation than the one it is vouching for.
     """
     rows = []
     for cutoff in cutoffs:
@@ -278,27 +294,61 @@ def summarise_coverage(cov: pd.DataFrame):
     """Measure whether the stated interval is honest. Do not try to correct it.
 
     An earlier version fitted a conformal multiplier here. It was removed, and the
-    reason is worth keeping in the file. Eight cutoffs over six months give 48
-    observations, but overlapping windows mean they cover only about 13 distinct
-    outcome months. Splitting those across six forecast horizons leaves roughly five
-    per horizon, and split conformal needs ceil((n+1)(1-alpha)) <= n to construct an
-    80% bound at all. At n=5 that is 6 <= 5, false, so the upper rank silently clips
-    to the sample maximum and what gets produced is the range of five points wearing
-    the label "80%". Correcting an interval needs materially more retained history
-    than this, which is the point the artifact makes anyway.
+    reason is worth stating precisely, because the first version of this note got it
+    wrong in a way a reader could catch.
 
-    Measuring coverage is still worth doing and needs no such machinery.
+    The reason is not the count. Eight cutoffs over six months give 48 scored
+    forecasts, which is 8 per horizon, and 8 is enough to construct an 80% bound.
+
+    The reason is that those 48 are not 48 independent observations. Overlapping
+    six-month windows score the same outcome month from as many as six different
+    cutoffs, so the 48 cover only 13 distinct months. Conformal prediction rests on
+    exchangeability of the calibration scores, and scores computed on a shared
+    outcome month are neither independent nor exchangeable with the rest. Without
+    exchangeability the coverage guarantee does not hold at any n, so no amount of
+    extra cutoffs cut this way would fix it. What would fix it is non-overlapping
+    windows, which at one scored month per cutoff means roughly two years of
+    retained forecasts to get a usable calibration set.
+
+    Measuring coverage is still worth doing and rests on no such assumption.
     """
     cov = cov.copy()
     cov["offset"] = ((cov.month.dt.year - cov.cutoff.dt.year) * 12
                      + (cov.month.dt.month - cov.cutoff.dt.month))
     miss = cov[~cov.in_80]
     by_h = (cov.groupby("offset")
-               .agg(n=("in_80", "size"), covered=("in_80", "mean"),
-                    med_err=("actual", "size"))
+               .agg(n=("in_80", "size"), covered=("in_80", "mean"))
                .reset_index())
-    by_h["covered"] = (by_h["covered"] * 100).round(0)
+    # one decimal, not zero. Eight observations put every value on a .5 boundary,
+    # and round-half-to-even sent 62.5 down to 62 while Excel's half-away-from-zero
+    # sent the same number up to 63, so the page and the workbook disagreed about
+    # an identical quantity.
+    by_h["covered"] = (by_h["covered"] * 100).round(1)
     by_h["med_err"] = [float((g.actual - g.p50).median()) for _, g in cov.groupby("offset")]
+
+    # Sign pattern of the error at the weakest horizon, in cutoff order. A median
+    # near zero can hide a front end that runs low early and high late, because the
+    # two halves cancel. That is a drift, not scatter, and it is a different problem
+    # with a different fix, so it gets measured rather than described.
+    worst = int(by_h.loc[by_h.covered.idxmin(), "offset"])
+    w = cov[cov.offset == worst].sort_values("cutoff")
+    resid = (w.actual - w.p50).to_numpy()
+    signs = "".join("+" if v >= 0 else "-" for v in resid)
+    runs = 1 + sum(1 for a, b in zip(signs, signs[1:]) if a != b)
+    # probability of this few sign changes or fewer, by exact enumeration over all
+    # orderings of the observed signs
+    n_pos = signs.count("+")
+    from itertools import permutations
+    seen, hits, tot = set(), 0, 0
+    for p in permutations(signs):
+        if p in seen:
+            continue
+        seen.add(p)
+        tot += 1
+        r = 1 + sum(1 for a, b in zip(p, p[1:]) if a != b)
+        if r <= runs:
+            hits += 1
+    p_runs = hits / tot if tot else float("nan")
 
     stats = dict(
         n_obs=len(cov),
@@ -308,9 +358,15 @@ def summarise_coverage(cov: pd.DataFrame):
         cov_50=float(cov.in_50.mean() * 100),
         miss_high=int((miss.actual > miss.p90).sum()),
         miss_low=int((miss.actual < miss.p10).sum()),
-        worst_h=int(by_h.loc[by_h.covered.idxmin(), "offset"]),
+        worst_h=worst,
         worst_h_cov=float(by_h.covered.min()),
         best_h_cov=float(by_h.covered.max()),
+        n_below=int((by_h.covered < 80).sum()),
+        worst_signs=signs,
+        worst_runs=runs,
+        worst_p_runs=float(p_runs),
+        worst_first=float(resid[:len(resid) // 2].mean()),
+        worst_last=float(resid[len(resid) // 2:].mean()),
     )
     return cov, stats, by_h
 
@@ -417,9 +473,15 @@ def main() -> None:
             print("    month +%d: %d forecasts, %3.0f%% covered, median error $%+.1fM"
                   % (r.offset, r.n, r.covered, r.med_err / 1e6))
         print()
-        print("  No correction is applied. Fitting one needs more retained history than")
-        print("  %d distinct months can support; see summarise_coverage for the arithmetic."
-              % stats["n_months"])
+        print("  error at month +%d, by cutoff: %s   (%d runs, p=%.3f)"
+              % (stats["worst_h"], stats["worst_signs"], stats["worst_runs"],
+                 stats["worst_p_runs"]))
+        print("    early cutoffs forecast high by $%.1fM, recent ones low by $%.1fM"
+              % (abs(stats["worst_first"]) / 1e6, abs(stats["worst_last"]) / 1e6))
+        print()
+        print("  No correction is applied. Overlapping windows score the same outcome")
+        print("  month repeatedly, which breaks the exchangeability conformal")
+        print("  calibration needs; see summarise_coverage.")
 
     cov.to_csv(os.path.join(DATA, "mc_coverage.csv"), index=False)
     mc.to_csv(os.path.join(DATA, "mc_monthly.csv"), index=False)
