@@ -91,19 +91,23 @@ def _obj(props: dict) -> dict:
     return out
 
 
-def card(x, y, w, h, z, measure: str, label: str) -> dict:
+def card(x, y, w, h, z, measure: str, label: str, units: int = 1000000) -> dict:
+    """units: 1000000 for currency, 1 (None) for a percentage or a count.
+
+    Display units apply to whatever the card holds, so a percentage card left on
+    Millions divided 1.0 by a million and rendered "0M%".
+    """
     single = {
         "visualType": "card",
         "projections": {"Values": [{"queryRef": "%s.%s" % (MEAS, measure)}]},
         "prototypeQuery": proto([("m", MEAS)], [measure_sel(measure)]),
         "objects": {
-            # labelDisplayUnits 1 = None. The measure format strings already
-            # scale to millions and append "M"; leaving the visual on Auto
-            # scaled a second time and appended a second "M", so $267,492,950
-            # rendered as "$0MM".
-            "labels": [{"properties": _obj({"color": INK, "fontSize": 28,
+            # 1000000 = Millions, and the format strings are plain currency.
+            # The scaling has to live in exactly one place: in both, the card
+            # read "$0MM"; in neither, the axis read "$40,000,000M".
+            "labels": [{"properties": _obj({"color": INK, "fontSize": 24,
                                             "fontFamily": "Segoe UI Semibold",
-                                            "labelDisplayUnits": 1,
+                                            "labelDisplayUnits": units,
                                             "labelPrecision": 0})}],
             "categoryLabels": [{"properties": _obj({"color": MUTED,
                                                     "fontSize": 10})}],
@@ -123,7 +127,8 @@ def card(x, y, w, h, z, measure: str, label: str) -> dict:
 def chart(x, y, w, h, z, vtype: str, cat: tuple[str, str], measures: list[str],
           title: str, colors: list[str] | None = None,
           legend: bool = True, cat_role: str = "Category",
-          val_role: str = "Y") -> dict:
+          val_role: str = "Y", units: int = 1000000) -> dict:
+    """units: 1000000 for a dollar axis, 1 (None) for months or a percentage."""
     table, col = cat
     selects = [column_sel(table, col, "c")] + [measure_sel(m) for m in measures]
     entities = [("c", table), ("m", MEAS)]
@@ -135,9 +140,9 @@ def chart(x, y, w, h, z, vtype: str, cat: tuple[str, str], measures: list[str],
         },
         "prototypeQuery": proto(entities, selects),
         "objects": {
-            # same reason as the cards: the format string already scales
+            # same reason as the cards: the scaling lives here, not in the format
             "valueAxis": [{"properties": _obj({"showAxisTitle": False,
-                                               "labelDisplayUnits": 1})}],
+                                               "labelDisplayUnits": units})}],
             "categoryAxis": [{"properties": _obj({"showAxisTitle": False,
                                                   "fontSize": 9})}],
             "legend": [{"properties": _obj({"show": legend, "position": "Top",
@@ -206,6 +211,12 @@ def slicer(x, y, w, h, z, table: str, col: str, title: str,
         "prototypeQuery": proto([("s", table)], [column_sel(table, col, "s")]),
         "objects": {
             "data": [{"properties": _obj({"mode": mode})}],
+            # single select, but not strict. The what-if measure reads
+            # SELECTEDVALUE, which goes blank if two rates are ticked at once;
+            # strict mode forces a selection on load, which pinned the page to
+            # 55% instead of opening on the measure's own 85% default.
+            "selection": [{"properties": _obj({"singleSelect": True,
+                                               "strictSingleSelect": False})}],
         },
         "vcObjects": {
             "title": [{"properties": _obj({"text": title, "show": True,
@@ -262,28 +273,33 @@ def page(name: str, display: str, ordinal: int, visuals: list[dict]) -> dict:
 # ------------------------------------------------------------------ pages
 def page_commit() -> dict:
     v = []
-    v.append(textbox(16, 12, 700, 56, 0, [
+    # 68 not 56: two paragraphs at 18pt and 9pt overflow a 56px box and Power BI
+    # renders a scrollbar down the right edge of it
+    v.append(textbox(16, 8, 700, 68, 0, [
         ("What to commit, as a range", H1),
         ("Synthetic data. Demonstrates a method, not any company's business.", SUB),
     ]))
+    # taller than the value needs, because the caption wraps to two lines on the
+    # longer ones and a 92px card clipped "Firm Share" off the bottom
     x = 16
-    for m, lbl in [("Open Backlog Material", "material against open backlog"),
-                   ("Requirement P50", "expected next-month requirement"),
-                   ("Material at Risk", "open orders past their promised date"),
-                   ("Firm Share", "of next month already on booked orders")]:
-        v.append(card(x, 78, 200, 92, 1, m, lbl))
+    for m, lbl, u in [
+            ("Open Backlog Material", "material against open backlog", 1000000),
+            ("Requirement Next Month", "needed next month", 1000000),
+            ("Material at Risk", "open orders past their promised date", 1000000),
+            ("Firm Share Next Month", "of next month already booked", 1)]:
+        v.append(card(x, 78, 200, 112, 1, m, lbl, units=u))
         x += 208
-    v.append(chart(16, 182, 848, 300, 2, "lineChart", ("dim_date", "year_month"),
+    v.append(chart(16, 202, 848, 296, 2, "lineChart", ("dim_date", "year_month"),
                    ["Requirement P10", "Requirement P50", "Requirement P90"],
                    "Forward material requirement, with the stated 80% interval",
                    colors=[MUTED, ORANGE, MUTED]))
-    v.append(slicer(880, 182, 184, 140, 3, "Realization Scenario",
+    v.append(slicer(880, 202, 184, 150, 3, "Realization Scenario",
                     "Realization Scenario", "Realization assumption"))
-    v.append(card(880, 334, 184, 74, 4, "Material at Assumption",
+    v.append(card(880, 362, 184, 88, 4, "Material at Assumption",
                   "material at that rate"))
-    v.append(card(880, 414, 184, 68, 4, "Exposure vs Full Commit",
+    v.append(card(880, 458, 184, 88, 4, "Exposure vs Full Commit",
                   "exposure the assumption controls"))
-    v.append(textbox(16, 492, 848, 88, 5, [
+    v.append(textbox(16, 510, 848, 88, 5, [
         ("The grey lines are the range the total is expected to fall within "
          "eight times out of ten. The band widens across the horizon because "
          "the far months are mostly demand from orders nobody has placed yet.", NOTE),
@@ -303,7 +319,7 @@ def page_slip() -> dict:
     v.append(chart(16, 78, 620, 330, 1, "barChart", ("dim_market", "market"),
                    ["Slip P90", "Regional Blend P90"],
                    "P90 slip by market vs its regional blend, months",
-                   colors=[ORANGE, MUTED]))
+                   colors=[ORANGE, MUTED], units=1))
     v.append(table_visual(652, 78, 412, 330, 2,
                           [("dim_market", "region"), ("dim_market", "market")],
                           ["Slip P50", "Slip P90", "Regional Blend P90",
@@ -332,22 +348,25 @@ def page_coverage() -> dict:
         ("Walk-forward test. The model is re-run at each past cutoff using only "
          "what was known then.", SUB),
     ]))
+    # every card on this page is a percentage or a count, so display units None.
+    # On Millions they would each have read "0M".
     x = 16
     for m, lbl in [("Coverage 80%", "of forecasts inside the stated 80%"),
                    ("Coverage 50%", "inside the stated 50%"),
                    ("Forecasts Scored", "walk-forward forecasts"),
                    ("Distinct Outcome Months", "distinct months they cover")]:
-        v.append(card(x, 78, 200, 92, 1, m, lbl))
+        v.append(card(x, 78, 200, 112, 1, m, lbl, units=1))
         x += 208
-    v.append(chart(16, 182, 520, 290, 2, "columnChart",
+    # y shifted from 182 to clear the taller cards
+    v.append(chart(16, 202, 520, 286, 2, "columnChart",
                    ("fact_coverage", "months_ahead"), ["Coverage 80%"],
                    "Coverage by how far ahead the call was made",
-                   colors=[ORANGE], legend=False))
-    v.append(chart(552, 182, 512, 290, 3, "columnChart",
+                   colors=[ORANGE], legend=False, units=1))
+    v.append(chart(552, 202, 512, 286, 3, "columnChart",
                    ("fact_coverage", "cutoff"), ["Mean Error"],
                    "Month +1 error by cutoff: high early, low late",
                    colors=[INK], legend=False))
-    v.append(textbox(16, 484, 1048, 110, 4, [
+    v.append(textbox(16, 500, 1048, 110, 4, [
         ("Both intervals sit above nominal, which is the safe direction. But "
          "those forecasts cover far fewer distinct months than the count "
          "suggests, because overlapping six-month windows score the same month "

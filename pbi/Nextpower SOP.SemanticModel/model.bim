@@ -13,13 +13,13 @@
     "tables": [
       {
         "name": "dim_date",
-        "lineageTag": "baef737f-27d0-4f8b-980c-ce2d6307ae75",
+        "lineageTag": "3ce0d1a9-da66-4264-9a58-8c313eb398e4",
         "columns": [
           {
             "name": "date_key",
             "dataType": "dateTime",
             "sourceColumn": "date_key",
-            "lineageTag": "bc580fae-551f-4096-af52-2d4034166c2e",
+            "lineageTag": "82aee2da-9c75-4cfd-a3dc-9b89bc8f510c",
             "summarizeBy": "none",
             "formatString": "yyyy-mm-dd"
           },
@@ -27,35 +27,35 @@
             "name": "year",
             "dataType": "int64",
             "sourceColumn": "year",
-            "lineageTag": "da5fa096-969f-4e49-8e45-e513486362cd",
+            "lineageTag": "75dc7bf1-8ff3-4f5a-960d-6b8b7ebfafe1",
             "summarizeBy": "sum"
           },
           {
             "name": "quarter",
             "dataType": "string",
             "sourceColumn": "quarter",
-            "lineageTag": "546923e7-3319-426e-8db0-aa05fb525f53",
+            "lineageTag": "59f7208f-86c2-4750-b4af-1d7b3da53b8a",
             "summarizeBy": "none"
           },
           {
             "name": "month_no",
             "dataType": "int64",
             "sourceColumn": "month_no",
-            "lineageTag": "26c417dd-ee43-4abb-ad5d-0b5c4b13f086",
+            "lineageTag": "f266a3d4-bbeb-4fda-9d76-6ac618422a9e",
             "summarizeBy": "sum"
           },
           {
             "name": "month_name",
             "dataType": "string",
             "sourceColumn": "month_name",
-            "lineageTag": "96ad2d57-2d60-4723-828d-b3a218b71b28",
+            "lineageTag": "1217e246-0289-4a70-baa3-9532909c302f",
             "summarizeBy": "none"
           },
           {
             "name": "year_month",
             "dataType": "string",
             "sourceColumn": "year_month",
-            "lineageTag": "558b8f5e-0b2f-43a6-a64d-97edd6c2204a",
+            "lineageTag": "0daed2a8-11e2-45ad-8aea-d5a2ddad41fb",
             "summarizeBy": "none",
             "sortByColumn": "year_month_sort"
           },
@@ -63,21 +63,21 @@
             "name": "fy_label",
             "dataType": "string",
             "sourceColumn": "fy_label",
-            "lineageTag": "2ed8487b-2b2e-414a-94c1-6ba769cdfd5a",
+            "lineageTag": "c9371c58-7dd3-453d-8494-83ecd0bc3c69",
             "summarizeBy": "none"
           },
           {
             "name": "year_month_sort",
             "dataType": "int64",
             "sourceColumn": "year_month_sort",
-            "lineageTag": "129659d6-86a4-4c93-afc2-9a1702fde25a",
+            "lineageTag": "f3f6fd22-dc29-43f3-994a-868efa01f60a",
             "summarizeBy": "sum"
           },
           {
             "name": "date",
             "dataType": "dateTime",
             "sourceColumn": "date",
-            "lineageTag": "593c0879-a07d-4e72-a67e-a1cf500aa512",
+            "lineageTag": "691b5327-e2ff-483c-b7ad-8369c446b5b6",
             "summarizeBy": "none",
             "formatString": "yyyy-mm-dd"
           }
@@ -106,13 +106,13 @@
       },
       {
         "name": "dim_market",
-        "lineageTag": "038e4e84-834c-4561-8e3d-1e6f0a96d0ed",
+        "lineageTag": "9994c65a-842c-4734-bbaf-75f1402f9c3a",
         "columns": [
           {
             "name": "market_key",
             "dataType": "string",
             "sourceColumn": "market_key",
-            "lineageTag": "4bfa0243-7203-457f-acc2-bca60fb51889",
+            "lineageTag": "c1b14929-ac87-422b-91d8-88adf047dc43",
             "summarizeBy": "none",
             "isHidden": true
           },
@@ -120,21 +120,21 @@
             "name": "market",
             "dataType": "string",
             "sourceColumn": "market",
-            "lineageTag": "fd7bf07e-4f96-4a35-9ee4-b1d3b12f4211",
+            "lineageTag": "b24b6e24-e2a3-47eb-8571-2a433224466b",
             "summarizeBy": "none"
           },
           {
             "name": "region",
             "dataType": "string",
             "sourceColumn": "region",
-            "lineageTag": "9f1eee83-6444-4699-9fbc-b5ab8c45a14e",
+            "lineageTag": "bb9c77d1-2997-468c-b17f-6aeaf726cb75",
             "summarizeBy": "none"
           },
           {
             "name": "tracked_separately",
             "dataType": "string",
             "sourceColumn": "tracked_separately",
-            "lineageTag": "d29796f8-4b6d-41ea-91c0-ce130c77953f",
+            "lineageTag": "5c2dc102-1a1d-472a-9e0c-b4fea5a0aea9",
             "summarizeBy": "none"
           }
         ],
@@ -161,27 +161,27 @@
       },
       {
         "name": "fact_orders",
-        "lineageTag": "9422b313-1a6e-4a49-81d2-c90fa0bb06fc",
+        "lineageTag": "8d2b0d0a-6499-4fd5-9e6b-c3714d259ed9",
         "columns": [
           {
             "name": "order_id",
             "dataType": "string",
             "sourceColumn": "order_id",
-            "lineageTag": "ca65d533-b016-466b-8f73-d9780e5c89b9",
+            "lineageTag": "400ab07e-f94c-435a-9627-9293b1c33ccd",
             "summarizeBy": "none"
           },
           {
             "name": "market",
             "dataType": "string",
             "sourceColumn": "market",
-            "lineageTag": "24a5362d-4252-4b9f-a91c-be4379e9c4ef",
+            "lineageTag": "2ba396b2-0d26-4c8e-b524-ad37310fb42d",
             "summarizeBy": "none"
           },
           {
             "name": "booked_key",
             "dataType": "dateTime",
             "sourceColumn": "booked_key",
-            "lineageTag": "e30ffe96-ab67-4d7e-b578-7c8f6c7b5ed6",
+            "lineageTag": "a1f17a34-f512-4605-a328-4a2b4991741c",
             "summarizeBy": "none",
             "formatString": "yyyy-mm-dd",
             "isHidden": true
@@ -190,7 +190,7 @@
             "name": "expected_key",
             "dataType": "dateTime",
             "sourceColumn": "expected_key",
-            "lineageTag": "2c2b746d-8a1e-4d9e-b34a-18e277a8d627",
+            "lineageTag": "242cde23-5d9a-446d-b987-e0ee02c2c260",
             "summarizeBy": "none",
             "formatString": "yyyy-mm-dd",
             "isHidden": true
@@ -199,7 +199,7 @@
             "name": "actual_key",
             "dataType": "dateTime",
             "sourceColumn": "actual_key",
-            "lineageTag": "a945a01c-d57e-4c40-becd-6999df82d00b",
+            "lineageTag": "0796421b-ea49-4cd4-8925-142962945db1",
             "summarizeBy": "none",
             "formatString": "yyyy-mm-dd",
             "isHidden": true
@@ -208,49 +208,49 @@
             "name": "mw",
             "dataType": "double",
             "sourceColumn": "mw",
-            "lineageTag": "ade794fe-e7e1-4b25-b4e2-4c7b3ca752f0",
+            "lineageTag": "8fca76bc-0311-4a06-976a-ff660610bdfd",
             "summarizeBy": "sum"
           },
           {
             "name": "order_value",
             "dataType": "double",
             "sourceColumn": "order_value",
-            "lineageTag": "a5f50ff3-db3f-458b-98c9-dface37529ed",
+            "lineageTag": "2c911d23-b0fc-4d01-9cbf-c4cf88ff1700",
             "summarizeBy": "sum"
           },
           {
             "name": "material_committed",
             "dataType": "double",
             "sourceColumn": "material_committed",
-            "lineageTag": "3c33e5da-ff95-4f04-9ebd-bdb4e5822719",
+            "lineageTag": "b13502e3-eecf-4a79-a04b-d09f92c15c9d",
             "summarizeBy": "sum"
           },
           {
             "name": "promised_months",
             "dataType": "int64",
             "sourceColumn": "promised_months",
-            "lineageTag": "e0209206-e0ac-4ed9-b7cb-86b8ea4c57cf",
+            "lineageTag": "fff740ed-71d9-4190-87ec-596fda32cf60",
             "summarizeBy": "sum"
           },
           {
             "name": "slip_months",
             "dataType": "double",
             "sourceColumn": "slip_months",
-            "lineageTag": "5f362bdf-7ef6-4376-bc6c-25cf06e466ff",
+            "lineageTag": "40a4113a-e03c-46c6-8698-c1fa37f85594",
             "summarizeBy": "sum"
           },
           {
             "name": "cancelled",
             "dataType": "boolean",
             "sourceColumn": "cancelled",
-            "lineageTag": "5adf8c18-e822-4a0c-96c4-6e1bad461137",
+            "lineageTag": "60e44d34-f463-43f8-a41a-b2539ac48778",
             "summarizeBy": "none"
           },
           {
             "name": "status",
             "dataType": "string",
             "sourceColumn": "status",
-            "lineageTag": "0555acb1-5a85-4b29-80f2-a0159edcd393",
+            "lineageTag": "f5cc078e-9851-4415-821a-7d18c9471630",
             "summarizeBy": "none"
           }
         ],
@@ -278,13 +278,13 @@
       },
       {
         "name": "fact_forecast",
-        "lineageTag": "6e47885f-c7ee-4f7b-b2e8-bc1d9a26bc84",
+        "lineageTag": "20951c03-ffb4-4294-b4a9-d861d656ab60",
         "columns": [
           {
             "name": "month",
             "dataType": "dateTime",
             "sourceColumn": "month",
-            "lineageTag": "222220a7-7735-4891-9707-1eca8539a7ca",
+            "lineageTag": "3db3a65f-6ffd-486c-a0bc-f9d66266cc79",
             "summarizeBy": "none",
             "formatString": "yyyy-mm-dd"
           },
@@ -292,7 +292,7 @@
             "name": "date_key",
             "dataType": "dateTime",
             "sourceColumn": "date_key",
-            "lineageTag": "1208c66d-5635-4f82-9840-07a48c696452",
+            "lineageTag": "6ed40f97-fc39-4bd4-83eb-6c9a3d53d06f",
             "summarizeBy": "none",
             "formatString": "yyyy-mm-dd"
           },
@@ -300,49 +300,49 @@
             "name": "scope",
             "dataType": "string",
             "sourceColumn": "scope",
-            "lineageTag": "46a06961-69ef-4218-85c9-655dfb2ac7b6",
+            "lineageTag": "7d1fd92e-9b04-46b7-ba9f-5d66826d632d",
             "summarizeBy": "none"
           },
           {
             "name": "layer",
             "dataType": "string",
             "sourceColumn": "layer",
-            "lineageTag": "ab14b6fc-f104-4ff0-ac3b-ae7aa26a4b71",
+            "lineageTag": "d39e727a-e651-4979-a346-b17695dd66e1",
             "summarizeBy": "none"
           },
           {
             "name": "p10",
             "dataType": "double",
             "sourceColumn": "p10",
-            "lineageTag": "e4758d1b-7c69-410d-a199-8d47079a1cef",
+            "lineageTag": "60d8ecfc-f947-4cfe-bac8-fd2e6ed13b83",
             "summarizeBy": "sum"
           },
           {
             "name": "p25",
             "dataType": "double",
             "sourceColumn": "p25",
-            "lineageTag": "af5b484a-9aa3-420d-93f3-5d5a7f3b6141",
+            "lineageTag": "e4e6afdb-1016-48b1-aa4e-547b2b96271d",
             "summarizeBy": "sum"
           },
           {
             "name": "p50",
             "dataType": "double",
             "sourceColumn": "p50",
-            "lineageTag": "e8af5041-22d6-4fc0-8e38-53669cfa86ca",
+            "lineageTag": "621932bc-4164-4ac4-8e91-a2a0bcc68ea3",
             "summarizeBy": "sum"
           },
           {
             "name": "p75",
             "dataType": "double",
             "sourceColumn": "p75",
-            "lineageTag": "c5293f5b-100c-4040-b7ab-810ac5737511",
+            "lineageTag": "53e89d67-086d-4e24-a2ba-4a994f6946f0",
             "summarizeBy": "sum"
           },
           {
             "name": "p90",
             "dataType": "double",
             "sourceColumn": "p90",
-            "lineageTag": "a2bc9f9e-b085-4079-840c-c12fb94b1769",
+            "lineageTag": "317770c2-4a62-47d8-8df0-6f1e8e395be7",
             "summarizeBy": "sum"
           }
         ],
@@ -370,13 +370,13 @@
       },
       {
         "name": "fact_coverage",
-        "lineageTag": "6b0d898f-f660-4755-8f01-70fbf45716a4",
+        "lineageTag": "ac0d9f6d-d66a-4645-b9b3-97a1a6b5c373",
         "columns": [
           {
             "name": "cutoff",
             "dataType": "dateTime",
             "sourceColumn": "cutoff",
-            "lineageTag": "242a0053-e88d-4400-bdac-e50ef8f204d2",
+            "lineageTag": "03fd4f32-b9fc-4515-8aa2-c52767926eea",
             "summarizeBy": "none",
             "formatString": "yyyy-mm-dd"
           },
@@ -384,7 +384,7 @@
             "name": "month",
             "dataType": "dateTime",
             "sourceColumn": "month",
-            "lineageTag": "a84c92df-d8b4-4754-bef0-51a0878cf1f8",
+            "lineageTag": "465d4193-4054-4e77-9299-1e1afea55ac0",
             "summarizeBy": "none",
             "formatString": "yyyy-mm-dd"
           },
@@ -392,7 +392,7 @@
             "name": "cutoff_key",
             "dataType": "dateTime",
             "sourceColumn": "cutoff_key",
-            "lineageTag": "25457ba1-ba76-41e9-ac3e-557be691b1e6",
+            "lineageTag": "729186f0-ed64-403a-8bd4-4903e759c3ee",
             "summarizeBy": "none",
             "formatString": "yyyy-mm-dd",
             "isHidden": true
@@ -401,7 +401,7 @@
             "name": "date_key",
             "dataType": "dateTime",
             "sourceColumn": "date_key",
-            "lineageTag": "f8e47d46-0f9f-42ca-ac55-f45ea35a2cdd",
+            "lineageTag": "6d211371-4c81-4077-9a34-7ebb012f260e",
             "summarizeBy": "none",
             "formatString": "yyyy-mm-dd"
           },
@@ -409,77 +409,77 @@
             "name": "months_ahead",
             "dataType": "int64",
             "sourceColumn": "months_ahead",
-            "lineageTag": "68999285-b888-4745-a6bb-e83d8f60a061",
+            "lineageTag": "00df42a1-eff0-4a1d-99b6-0e4619da24b1",
             "summarizeBy": "sum"
           },
           {
             "name": "actual",
             "dataType": "double",
             "sourceColumn": "actual",
-            "lineageTag": "47d86251-8cf4-49f8-88b6-027d2249f994",
+            "lineageTag": "6bda8fcf-e9c5-4322-893e-f1bbf091e5c9",
             "summarizeBy": "sum"
           },
           {
             "name": "p10",
             "dataType": "double",
             "sourceColumn": "p10",
-            "lineageTag": "677c681d-e840-4752-a281-11db87a11bdb",
+            "lineageTag": "6f575bab-fa41-49ca-a219-c6f277a0a26d",
             "summarizeBy": "sum"
           },
           {
             "name": "p25",
             "dataType": "double",
             "sourceColumn": "p25",
-            "lineageTag": "8058d844-79ce-4de8-abf6-7164534bf487",
+            "lineageTag": "219ab17e-2297-45d6-a2ce-98214e664efa",
             "summarizeBy": "sum"
           },
           {
             "name": "p50",
             "dataType": "double",
             "sourceColumn": "p50",
-            "lineageTag": "67484cfb-3022-4844-a71c-9b8b82b36aef",
+            "lineageTag": "e7cad439-cdee-4466-b652-95331960a28a",
             "summarizeBy": "sum"
           },
           {
             "name": "p75",
             "dataType": "double",
             "sourceColumn": "p75",
-            "lineageTag": "53a3fa34-62e9-4fb0-82b0-79aadee6f1d6",
+            "lineageTag": "be3dae21-56c0-4f83-bcc2-02c5ccd7c053",
             "summarizeBy": "sum"
           },
           {
             "name": "p90",
             "dataType": "double",
             "sourceColumn": "p90",
-            "lineageTag": "3705007c-48f7-4eab-bfbd-1a332c0f4109",
+            "lineageTag": "c45dff7c-e558-4c8d-a6ad-13749fd73a53",
             "summarizeBy": "sum"
           },
           {
             "name": "error",
             "dataType": "double",
             "sourceColumn": "error",
-            "lineageTag": "a304d031-d05c-4e67-9638-a28eeb3fc882",
+            "lineageTag": "dfd2535e-26c4-4df0-b895-ffc056310d40",
             "summarizeBy": "sum"
           },
           {
             "name": "inside_80",
             "dataType": "int64",
             "sourceColumn": "inside_80",
-            "lineageTag": "1210f086-6551-4a19-af32-f568478e1750",
+            "lineageTag": "c12cecc3-21ad-476f-b98b-ade9a5c56a44",
             "summarizeBy": "sum"
           },
           {
             "name": "inside_50",
             "dataType": "int64",
             "sourceColumn": "inside_50",
-            "lineageTag": "1b4152e8-737a-4a2c-9499-7c50f16065e4",
+            "lineageTag": "6b86ed2e-bf38-4100-a61f-d3cf1534447b",
             "summarizeBy": "sum"
           },
           {
             "name": "direction",
             "dataType": "string",
             "sourceColumn": "direction",
-            "lineageTag": "2feec3ea-35b0-4e12-ac59-8d9fd2e5c611",
+            "lineageTag": "277270e2-3b33-46c6-8410-b15e8a8aec0b",
             "summarizeBy": "none"
           }
         ],
@@ -507,20 +507,20 @@
       },
       {
         "name": "fact_lookback",
-        "lineageTag": "14e45ae5-698a-43d9-8e9b-781c6e791eec",
+        "lineageTag": "58c7cde6-c573-4f92-b606-7345ba6f5978",
         "columns": [
           {
             "name": "market",
             "dataType": "string",
             "sourceColumn": "market",
-            "lineageTag": "c6ad3731-62d0-4508-a927-b20c70c26f92",
+            "lineageTag": "5f51ede5-8941-49c1-aad2-2718ad86105c",
             "summarizeBy": "none"
           },
           {
             "name": "month",
             "dataType": "dateTime",
             "sourceColumn": "month",
-            "lineageTag": "d24bf33e-038a-4635-b158-9504b7c137e2",
+            "lineageTag": "f41b42a8-ea50-48dc-a398-de356604fa18",
             "summarizeBy": "none",
             "formatString": "yyyy-mm-dd"
           },
@@ -528,7 +528,7 @@
             "name": "date_key",
             "dataType": "dateTime",
             "sourceColumn": "date_key",
-            "lineageTag": "58ee2fbb-5b7a-45af-bd3b-8364e241923a",
+            "lineageTag": "c611d3ec-807c-4db9-9644-157a5c1f0e19",
             "summarizeBy": "none",
             "formatString": "yyyy-mm-dd"
           },
@@ -536,28 +536,28 @@
             "name": "expected_mw",
             "dataType": "double",
             "sourceColumn": "expected_mw",
-            "lineageTag": "23d49c5a-8b6d-45a8-b338-113e27ce2ede",
+            "lineageTag": "b5bb3324-eb69-4e8c-96ed-c407e60f8510",
             "summarizeBy": "sum"
           },
           {
             "name": "actual_mw",
             "dataType": "double",
             "sourceColumn": "actual_mw",
-            "lineageTag": "67b71377-cb9e-45ac-9f36-7cc340b9e889",
+            "lineageTag": "d4ea28da-4f85-4af9-aab1-4ba65558ca0c",
             "summarizeBy": "sum"
           },
           {
             "name": "realization",
             "dataType": "double",
             "sourceColumn": "realization",
-            "lineageTag": "7189e672-c281-4231-8842-72de9905288e",
+            "lineageTag": "748df0fb-54bd-41e7-bcc7-a0fcd68c91b7",
             "summarizeBy": "sum"
           },
           {
             "name": "bias_mw",
             "dataType": "double",
             "sourceColumn": "bias_mw",
-            "lineageTag": "987d45d5-3872-42d7-986d-bda2f33985f1",
+            "lineageTag": "4133aa6a-cfdd-4094-9268-14cdc14af2c1",
             "summarizeBy": "sum"
           }
         ],
@@ -585,7 +585,7 @@
       },
       {
         "name": "Realization Scenario",
-        "lineageTag": "e445f191-7f35-46f0-b76d-4784d9f3262a",
+        "lineageTag": "92b36686-48a1-4d45-8505-7862931a322d",
         "columns": [
           {
             "name": "Realization Scenario",
@@ -595,7 +595,7 @@
             "isDataTypeInferred": true,
             "sourceColumn": "[Realization Scenario]",
             "formatString": "0%",
-            "lineageTag": "c01b2b60-c409-4441-9905-d515d76db36e",
+            "lineageTag": "25a500d8-0b47-4aea-bd66-37683c40d152",
             "summarizeBy": "none",
             "annotations": [
               {
@@ -618,13 +618,13 @@
         "annotations": [
           {
             "name": "PBI_Id",
-            "value": "1aa5b94c3f8345258c9b2941b7c40555"
+            "value": "69d40012d5c24ba6a6e167cfacdfb882"
           }
         ]
       },
       {
         "name": "S&OP Metrics",
-        "lineageTag": "2650b709-feeb-42d7-837d-a61160fe5172",
+        "lineageTag": "d20546a4-c1ab-4d88-bbfe-88b57a8fc715",
         "columns": [
           {
             "name": "_placeholder",
@@ -634,7 +634,7 @@
             "isDataTypeInferred": true,
             "sourceColumn": "[_placeholder]",
             "isHidden": true,
-            "lineageTag": "dbd7f42c-9dfa-4c44-aad4-a3562a1fad6b",
+            "lineageTag": "1fd326ef-1c6f-41b4-8038-175f411aa85a",
             "summarizeBy": "none"
           }
         ],
@@ -655,7 +655,7 @@
             "formatString": "#,0",
             "displayFolder": "Volume",
             "description": "Count of booked projects in context.",
-            "lineageTag": "f5603812-fb96-4691-9095-e168827011d8"
+            "lineageTag": "a19c36be-d0dc-43cd-86db-d483b62e1e1c"
           },
           {
             "name": "MW Booked",
@@ -663,23 +663,23 @@
             "formatString": "#,0.0",
             "displayFolder": "Volume",
             "description": "Nameplate MW on booked orders.",
-            "lineageTag": "846f2d65-faf8-450b-b0eb-65dffba870e5"
+            "lineageTag": "7266ee94-f29c-4f29-b2da-98c16e8ec9af"
           },
           {
             "name": "Order Value",
             "expression": "SUM ( fact_orders[order_value] )",
-            "formatString": "\\$#,0,,\"M\"",
+            "formatString": "\\$#,##0",
             "displayFolder": "Volume",
             "description": "Booked order value.",
-            "lineageTag": "ab5a769d-3b33-476c-afda-4ca5124bb73c"
+            "lineageTag": "80d148c0-aea9-483b-a310-245b21e57085"
           },
           {
             "name": "Material Committed",
             "expression": "SUM ( fact_orders[material_committed] )",
-            "formatString": "\\$#,0,,\"M\"",
+            "formatString": "\\$#,##0",
             "displayFolder": "Volume",
             "description": "Order value times the material rate from the case study.",
-            "lineageTag": "e15fe653-4b74-44ee-9459-1101d1d918a4"
+            "lineageTag": "0985c448-157b-4681-89af-668ed76dd65a"
           },
           {
             "name": "Open Backlog $",
@@ -702,18 +702,18 @@
               "    REMOVEFILTERS ( dim_date )",
               ")"
             ],
-            "formatString": "\\$#,0,,\"M\"",
+            "formatString": "\\$#,##0",
             "displayFolder": "Backlog",
             "description": "Booked on or before the date, not cancelled, not yet converted. Cancelled orders are excluded from both sides; leaving them in the booked side overstates backlog permanently, since they never convert. The as-of date clamps to the last booked month: dim_date has to run out to 2028 to cover conversions, and an unfiltered MAX over it asked for backlog as of a date two years past the end of the book, which nothing satisfies.",
-            "lineageTag": "72300e9b-70a5-4654-89a6-30a4b971055c"
+            "lineageTag": "d0e1d76d-5ad4-4ce0-ab87-2acf9760c71b"
           },
           {
             "name": "Open Backlog Material",
             "expression": "[Open Backlog $] * 0.5",
-            "formatString": "\\$#,0,,\"M\"",
+            "formatString": "\\$#,##0",
             "displayFolder": "Backlog",
             "description": "Material value of open backlog.",
-            "lineageTag": "a024bbc8-5018-491e-8793-40aa54be150a"
+            "lineageTag": "95dad899-fc48-4434-9127-bcb25094e06a"
           },
           {
             "name": "Material at Risk",
@@ -737,10 +737,10 @@
               "    REMOVEFILTERS ( dim_date )",
               ")"
             ],
-            "formatString": "\\$#,0,,\"M\"",
+            "formatString": "\\$#,##0",
             "displayFolder": "Backlog",
             "description": "Open orders already past their promised date. Filtered on the promised date, not on realised slip: slip is only knowable after the fact, and a KPI built on it reports something no planner could have produced.",
-            "lineageTag": "360ff801-2c25-4b1e-a80c-534f16e2e847"
+            "lineageTag": "34571dce-f451-4131-a5c8-1f4752ba6110"
           },
           {
             "name": "Converted $",
@@ -751,10 +751,10 @@
               "    fact_orders[cancelled] = FALSE",
               ")"
             ],
-            "formatString": "\\$#,0,,\"M\"",
+            "formatString": "\\$#,##0",
             "displayFolder": "Flow",
             "description": "Order value converting in the month, using the actual conversion date.",
-            "lineageTag": "491d675e-432f-42e5-81f9-99e90e035e74"
+            "lineageTag": "6fc50ada-345e-4e46-875f-cdf117f54c49"
           },
           {
             "name": "Book to Bill",
@@ -762,7 +762,7 @@
             "formatString": "0.00",
             "displayFolder": "Flow",
             "description": "Booked over converted. Above 1.0 the book is growing.",
-            "lineageTag": "087bd4d2-74cd-4109-8f69-9f02bd5e1551"
+            "lineageTag": "81fe3f30-0784-4f5a-90a0-c57630888193"
           },
           {
             "name": "Requirement P50",
@@ -770,10 +770,10 @@
               "CALCULATE ( SUM ( fact_forecast[p50] ),",
               "    fact_forecast[scope] = \"TOTAL\", fact_forecast[layer] = \"all\" )"
             ],
-            "formatString": "\\$#,0,,\"M\"",
+            "formatString": "\\$#,##0",
             "displayFolder": "Forecast",
             "description": "Median forward material requirement.",
-            "lineageTag": "e0d1a2ec-7a1d-4001-88fe-7ab6594c91f6"
+            "lineageTag": "d5e55933-3bc0-4088-9044-bf2ddc924a06"
           },
           {
             "name": "Requirement P10",
@@ -781,10 +781,10 @@
               "CALCULATE ( SUM ( fact_forecast[p10] ),",
               "    fact_forecast[scope] = \"TOTAL\", fact_forecast[layer] = \"all\" )"
             ],
-            "formatString": "\\$#,0,,\"M\"",
+            "formatString": "\\$#,##0",
             "displayFolder": "Forecast",
             "description": "Low end of the stated 80% interval.",
-            "lineageTag": "aa3843a5-0b7d-4410-9748-08d1a0eecfef"
+            "lineageTag": "e770d40b-3c50-49e4-bbde-4f16c9439b8b"
           },
           {
             "name": "Requirement P90",
@@ -792,18 +792,18 @@
               "CALCULATE ( SUM ( fact_forecast[p90] ),",
               "    fact_forecast[scope] = \"TOTAL\", fact_forecast[layer] = \"all\" )"
             ],
-            "formatString": "\\$#,0,,\"M\"",
+            "formatString": "\\$#,##0",
             "displayFolder": "Forecast",
             "description": "High end of the stated 80% interval.",
-            "lineageTag": "de7b8079-b217-4f88-a345-016249966720"
+            "lineageTag": "d1429a6a-89e3-44aa-905c-a05eee306da8"
           },
           {
             "name": "Interval Width",
             "expression": "[Requirement P90] - [Requirement P10]",
-            "formatString": "\\$#,0,,\"M\"",
+            "formatString": "\\$#,##0",
             "displayFolder": "Forecast",
             "description": "Width of the stated 80% interval.",
-            "lineageTag": "447ef87b-8173-4fbf-8adf-5ca0d8a1a2c9"
+            "lineageTag": "6fc6ed32-e2b1-4806-b2b4-5acec0e6c713"
           },
           {
             "name": "Firm Share",
@@ -816,7 +816,44 @@
             "formatString": "0%",
             "displayFolder": "Forecast",
             "description": "Share of the month's requirement already on booked orders.",
-            "lineageTag": "ba218b02-b632-4c36-ac9a-8cb21df63c14"
+            "lineageTag": "1ce30dd2-2f53-465b-aa2a-352978914651"
+          },
+          {
+            "name": "Requirement Next Month",
+            "expression": [
+              "VAR M1 = CALCULATE ( MIN ( fact_forecast[month] ), REMOVEFILTERS ( ) )",
+              "RETURN",
+              "CALCULATE (",
+              "    SUM ( fact_forecast[p50] ),",
+              "    REMOVEFILTERS ( ),",
+              "    fact_forecast[scope] = \"TOTAL\",",
+              "    fact_forecast[layer] = \"all\",",
+              "    fact_forecast[month] = M1",
+              ")"
+            ],
+            "formatString": "\\$#,##0",
+            "displayFolder": "Forecast",
+            "description": "Median requirement for the first forecast month only. Ignores slicers, because a headline card should say the same thing whatever is filtered.",
+            "lineageTag": "93a2edb1-7652-41d0-a4c7-a62c25d8c629"
+          },
+          {
+            "name": "Firm Share Next Month",
+            "expression": [
+              "VAR M1 = CALCULATE ( MIN ( fact_forecast[month] ), REMOVEFILTERS ( ) )",
+              "VAR Firm =",
+              "    CALCULATE (",
+              "        SUM ( fact_forecast[p50] ),",
+              "        REMOVEFILTERS ( ),",
+              "        fact_forecast[scope] = \"TOTAL\",",
+              "        fact_forecast[layer] = \"firm\",",
+              "        fact_forecast[month] = M1",
+              "    )",
+              "RETURN DIVIDE ( Firm, [Requirement Next Month] )"
+            ],
+            "formatString": "0%",
+            "displayFolder": "Forecast",
+            "description": "Share of the first forecast month already sitting on booked orders.",
+            "lineageTag": "62514d16-f035-4905-8f1a-5878243d637d"
           },
           {
             "name": "Sum of Regional P90",
@@ -828,10 +865,10 @@
               "    fact_forecast[layer] = \"all\"",
               ")"
             ],
-            "formatString": "\\$#,0,,\"M\"",
+            "formatString": "\\$#,##0",
             "displayFolder": "Forecast",
             "description": "Adding the four regional P90s together.",
-            "lineageTag": "8391da6c-bcd8-431f-881e-91c1970019a2"
+            "lineageTag": "fe7b4beb-8dd8-4f04-9959-9ba9ab667d45"
           },
           {
             "name": "Quantile Overstatement %",
@@ -839,7 +876,7 @@
             "formatString": "0.0%",
             "displayFolder": "Forecast",
             "description": "How much adding regional worst cases overstates the portfolio worst case. Quantiles do not add: the regions do not all run late in the same month. The gap is material that would be bought and not needed.",
-            "lineageTag": "8d588e80-d31f-4763-856d-389749c9b0d7"
+            "lineageTag": "69eaebc7-cfa0-48a9-ad1b-1f603e5c5622"
           },
           {
             "name": "Slip P50",
@@ -852,7 +889,7 @@
             "formatString": "0.0",
             "displayFolder": "Slip",
             "description": "Median schedule slip, in months.",
-            "lineageTag": "ce9a95fd-54ab-4cd7-b8e2-01ccc1d3a6af"
+            "lineageTag": "c7c4e7a2-ffba-44b8-82fa-2184385e198c"
           },
           {
             "name": "Slip P90",
@@ -865,7 +902,7 @@
             "formatString": "0.0",
             "displayFolder": "Slip",
             "description": "90th percentile schedule slip. The number a commitment horizon is set on.",
-            "lineageTag": "ec401761-f809-425f-9ba0-208cda597077"
+            "lineageTag": "7f6eed87-b30e-45d2-807d-581f6f9324d3"
           },
           {
             "name": "Regional Blend P90",
@@ -881,7 +918,7 @@
             "formatString": "0.0",
             "displayFolder": "Slip",
             "description": "The same P90 computed at region level. Where a region holds more than one market it describes neither of them: APAC blends Australia and India into a figure that runs early on one and late on the other.",
-            "lineageTag": "0bdb6b31-f887-4f84-84dc-f8a194f22009"
+            "lineageTag": "9ddb61b7-e7aa-4872-ae06-c4a9682a4527"
           },
           {
             "name": "Blend Gap",
@@ -889,7 +926,7 @@
             "formatString": "+0.0;-0.0",
             "displayFolder": "Slip",
             "description": "Months between a market's own P90 and the regional figure it would be planned on.",
-            "lineageTag": "615d9c06-3814-4b9e-a4eb-7fd924c43cb9"
+            "lineageTag": "832338d0-9d3f-4be8-9311-af6ddaf6b990"
           },
           {
             "name": "Expected MW",
@@ -897,7 +934,7 @@
             "formatString": "#,0.0",
             "displayFolder": "Realization",
             "description": "MW the order book expected to convert.",
-            "lineageTag": "564022d0-2ea5-4563-b1f3-917fd112e74d"
+            "lineageTag": "96d792d8-d939-468c-b8bf-c5fb68798ddd"
           },
           {
             "name": "Actual MW",
@@ -905,7 +942,7 @@
             "formatString": "#,0.0",
             "displayFolder": "Realization",
             "description": "MW that actually converted.",
-            "lineageTag": "978247ba-b6c4-4f5d-a834-228b9d2b6756"
+            "lineageTag": "10318ec8-cf45-4d6c-b1a1-7fd5ac2faf77"
           },
           {
             "name": "Realization Rate",
@@ -913,7 +950,7 @@
             "formatString": "0.0%",
             "displayFolder": "Realization",
             "description": "Measured, not assumed. This is the number a planning cycle usually picks.",
-            "lineageTag": "cec94dae-77a5-468c-938a-183e8b1754e4"
+            "lineageTag": "c73932ed-c61a-4fda-9c35-8e7f5d39e185"
           },
           {
             "name": "Bias MW",
@@ -921,7 +958,7 @@
             "formatString": "+#,0.0;-#,0.0",
             "displayFolder": "Realization",
             "description": "Actual minus expected, in MW.",
-            "lineageTag": "39c2106a-23cc-4fc7-8805-3865a49f3163"
+            "lineageTag": "b6c8b7a4-379b-46a4-b8a8-ec0162831257"
           },
           {
             "name": "Cumulative Bias MW",
@@ -935,7 +972,7 @@
             "formatString": "+#,0.0;-#,0.0",
             "displayFolder": "Realization",
             "description": "Running total of bias. A region with persistent drift shows here as a line that does not return to zero.",
-            "lineageTag": "befade5f-8ab6-46dd-a363-e205286f9875"
+            "lineageTag": "ed676494-6491-4cee-9495-42ae2ef1eac7"
           },
           {
             "name": "Realization Assumption",
@@ -943,23 +980,23 @@
             "formatString": "0%",
             "displayFolder": "Scenario",
             "description": "The rate selected on the slider.",
-            "lineageTag": "e8e3dfbc-d8cd-44dd-b157-6e26cb7ff318"
+            "lineageTag": "0abd9162-1312-4830-b592-ae44e687ebb4"
           },
           {
             "name": "Material at Assumption",
             "expression": "[Open Backlog Material] * [Realization Assumption]",
-            "formatString": "\\$#,0,,\"M\"",
+            "formatString": "\\$#,##0",
             "displayFolder": "Scenario",
             "description": "Material implied by the chosen realization rate.",
-            "lineageTag": "8d5d5c90-c116-4c67-b738-2a1030205de0"
+            "lineageTag": "b759e4c1-ea96-4b0b-abca-3d5ea32af5d2"
           },
           {
             "name": "Exposure vs Full Commit",
             "expression": "[Open Backlog Material] - [Material at Assumption]",
-            "formatString": "\\$#,0,,\"M\"",
+            "formatString": "\\$#,##0",
             "displayFolder": "Scenario",
             "description": "Distance between committing against the whole book and committing against the assumption. This is the exposure the assumption controls.",
-            "lineageTag": "1ff9998d-9bf5-4f6a-8519-9d844df60945"
+            "lineageTag": "f3c07b09-3df0-46ce-a258-039cac69c2e3"
           },
           {
             "name": "Forecasts Scored",
@@ -967,7 +1004,7 @@
             "formatString": "#,0",
             "displayFolder": "Coverage",
             "description": "Walk-forward forecasts scored against what the month turned out to be.",
-            "lineageTag": "1d8062b0-1660-4cea-90d0-25bb8684cd29"
+            "lineageTag": "646e9b6f-6c9c-4152-b2e7-cb1d790a8b05"
           },
           {
             "name": "Distinct Outcome Months",
@@ -975,7 +1012,7 @@
             "formatString": "#,0",
             "displayFolder": "Coverage",
             "description": "Overlapping six-month windows score the same month up to six times, so this is well below the number of forecasts. It is the effective sample size, and the reason no correction is fitted to the interval.",
-            "lineageTag": "68e617d1-debf-420c-8664-715837165af4"
+            "lineageTag": "553b5f5f-a945-4b7f-bfb5-645e6dd61857"
           },
           {
             "name": "Coverage 80%",
@@ -983,7 +1020,7 @@
             "formatString": "0.0%",
             "displayFolder": "Coverage",
             "description": "Share of forecasts the stated 80% interval contained.",
-            "lineageTag": "96dc7ca7-ee9c-4c17-8b7f-abdaea553b19"
+            "lineageTag": "c250c093-299e-4a15-ad1d-b423e8dd089e"
           },
           {
             "name": "Coverage 50%",
@@ -991,7 +1028,7 @@
             "formatString": "0.0%",
             "displayFolder": "Coverage",
             "description": "Share the stated 50% interval contained.",
-            "lineageTag": "3063fc75-fe0d-4e2f-a88f-8f2fdfd09e1e"
+            "lineageTag": "8b9ae629-5741-40db-9a33-4cd5912ef22a"
           },
           {
             "name": "Misses High",
@@ -1002,7 +1039,7 @@
             "formatString": "#,0",
             "displayFolder": "Coverage",
             "description": "Outcomes above the interval.",
-            "lineageTag": "e22a3bae-f4c2-40e3-a6d6-228bc69d1788"
+            "lineageTag": "68328b9e-8fc4-4896-8f3e-a197e4db8c7b"
           },
           {
             "name": "Misses Low",
@@ -1013,23 +1050,23 @@
             "formatString": "#,0",
             "displayFolder": "Coverage",
             "description": "Outcomes below the interval.",
-            "lineageTag": "7af77384-5031-414e-a8f2-594fb9278d12"
+            "lineageTag": "4558a3f2-aa62-4d36-9bdb-5ac38ab989dc"
           },
           {
             "name": "Median Error",
             "expression": "MEDIAN ( fact_coverage[error] )",
-            "formatString": "\\$#,0,,\"M\"",
+            "formatString": "\\$#,##0",
             "displayFolder": "Coverage",
             "description": "Median of actual minus P50. Near zero can hide a front end that runs low early and high late, because the halves cancel.",
-            "lineageTag": "e5532a11-f0fc-466e-9479-1a4c4ce6857b"
+            "lineageTag": "ea765a4d-d7ca-4b59-9299-4f1a0dd07917"
           },
           {
             "name": "Mean Error",
             "expression": "AVERAGE ( fact_coverage[error] )",
-            "formatString": "\\$#,0,,\"M\"",
+            "formatString": "\\$#,##0",
             "displayFolder": "Coverage",
             "description": "Mean of actual minus P50.",
-            "lineageTag": "aca44df2-61be-4907-b644-bed5d3ceddb3"
+            "lineageTag": "65e222f2-7649-46ea-ad5d-6f2f5d4009b2"
           }
         ]
       }

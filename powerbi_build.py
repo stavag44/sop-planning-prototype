@@ -112,10 +112,10 @@ M = [
      "Count of booked projects in context."),
     ("MW Booked", "SUM ( fact_orders[mw] )", "#,0.0", "Volume",
      "Nameplate MW on booked orders."),
-    ("Order Value", "SUM ( fact_orders[order_value] )", "\\$#,0,,\"M\"", "Volume",
+    ("Order Value", "SUM ( fact_orders[order_value] )", "\\$#,##0", "Volume",
      "Booked order value."),
     ("Material Committed",
-     "SUM ( fact_orders[material_committed] )", "\\$#,0,,\"M\"", "Volume",
+     "SUM ( fact_orders[material_committed] )", "\\$#,##0", "Volume",
      "Order value times the material rate from the case study."),
 
     # -- backlog, as-of -------------------------------------------------------
@@ -141,7 +141,7 @@ M = [
      "        fact_orders[order_value]\n"
      "    ),\n"
      "    REMOVEFILTERS ( dim_date )\n"
-     ")", "\\$#,0,,\"M\"", "Backlog",
+     ")", "\\$#,##0", "Backlog",
      "Booked on or before the date, not cancelled, not yet converted. Cancelled "
      "orders are excluded from both sides; leaving them in the booked side "
      "overstates backlog permanently, since they never convert. The as-of date "
@@ -149,7 +149,7 @@ M = [
      "conversions, and an unfiltered MAX over it asked for backlog as of a date "
      "two years past the end of the book, which nothing satisfies."),
     ("Open Backlog Material",
-     "[Open Backlog $] * 0.5", "\\$#,0,,\"M\"", "Backlog",
+     "[Open Backlog $] * 0.5", "\\$#,##0", "Backlog",
      "Material value of open backlog."),
     ("Material at Risk",
      "VAR LastBooked =\n"
@@ -169,7 +169,7 @@ M = [
      "        fact_orders[material_committed]\n"
      "    ),\n"
      "    REMOVEFILTERS ( dim_date )\n"
-     ")", "\\$#,0,,\"M\"", "Backlog",
+     ")", "\\$#,##0", "Backlog",
      "Open orders already past their promised date. Filtered on the promised "
      "date, not on realised slip: slip is only knowable after the fact, and a "
      "KPI built on it reports something no planner could have produced."),
@@ -180,7 +180,7 @@ M = [
      "    SUM ( fact_orders[order_value] ),\n"
      "    USERELATIONSHIP ( fact_orders[actual_key], dim_date[date] ),\n"
      "    fact_orders[cancelled] = FALSE\n"
-     ")", "\\$#,0,,\"M\"", "Flow",
+     ")", "\\$#,##0", "Flow",
      "Order value converting in the month, using the actual conversion date."),
     ("Book to Bill",
      "DIVIDE ( [Order Value], [Converted $] )", "0.00", "Flow",
@@ -190,17 +190,17 @@ M = [
     ("Requirement P50",
      "CALCULATE ( SUM ( fact_forecast[p50] ),\n"
      "    fact_forecast[scope] = \"TOTAL\", fact_forecast[layer] = \"all\" )",
-     "\\$#,0,,\"M\"", "Forecast", "Median forward material requirement."),
+     "\\$#,##0", "Forecast", "Median forward material requirement."),
     ("Requirement P10",
      "CALCULATE ( SUM ( fact_forecast[p10] ),\n"
      "    fact_forecast[scope] = \"TOTAL\", fact_forecast[layer] = \"all\" )",
-     "\\$#,0,,\"M\"", "Forecast", "Low end of the stated 80% interval."),
+     "\\$#,##0", "Forecast", "Low end of the stated 80% interval."),
     ("Requirement P90",
      "CALCULATE ( SUM ( fact_forecast[p90] ),\n"
      "    fact_forecast[scope] = \"TOTAL\", fact_forecast[layer] = \"all\" )",
-     "\\$#,0,,\"M\"", "Forecast", "High end of the stated 80% interval."),
+     "\\$#,##0", "Forecast", "High end of the stated 80% interval."),
     ("Interval Width",
-     "[Requirement P90] - [Requirement P10]", "\\$#,0,,\"M\"", "Forecast",
+     "[Requirement P90] - [Requirement P10]", "\\$#,##0", "Forecast",
      "Width of the stated 80% interval."),
     ("Firm Share",
      "VAR Firm =\n"
@@ -209,6 +209,35 @@ M = [
      "RETURN DIVIDE ( Firm, [Requirement P50] )", "0%", "Forecast",
      "Share of the month's requirement already on booked orders."),
 
+    # KPI-card versions, pinned to the first forecast month. The plain measures
+    # aggregate over whatever is in context, so on an unfiltered card they
+    # summed the whole twelve-month horizon: a card captioned "expected
+    # next-month requirement" read $353M against the $26M the page reports.
+    ("Requirement Next Month",
+     "VAR M1 = CALCULATE ( MIN ( fact_forecast[month] ), REMOVEFILTERS ( ) )\n"
+     "RETURN\n"
+     "CALCULATE (\n"
+     "    SUM ( fact_forecast[p50] ),\n"
+     "    REMOVEFILTERS ( ),\n"
+     "    fact_forecast[scope] = \"TOTAL\",\n"
+     "    fact_forecast[layer] = \"all\",\n"
+     "    fact_forecast[month] = M1\n"
+     ")", "\\$#,##0", "Forecast",
+     "Median requirement for the first forecast month only. Ignores slicers, "
+     "because a headline card should say the same thing whatever is filtered."),
+    ("Firm Share Next Month",
+     "VAR M1 = CALCULATE ( MIN ( fact_forecast[month] ), REMOVEFILTERS ( ) )\n"
+     "VAR Firm =\n"
+     "    CALCULATE (\n"
+     "        SUM ( fact_forecast[p50] ),\n"
+     "        REMOVEFILTERS ( ),\n"
+     "        fact_forecast[scope] = \"TOTAL\",\n"
+     "        fact_forecast[layer] = \"firm\",\n"
+     "        fact_forecast[month] = M1\n"
+     "    )\n"
+     "RETURN DIVIDE ( Firm, [Requirement Next Month] )", "0%", "Forecast",
+     "Share of the first forecast month already sitting on booked orders."),
+
     # -- the quantile point ---------------------------------------------------
     ("Sum of Regional P90",
      "CALCULATE (\n"
@@ -216,7 +245,7 @@ M = [
      "    REMOVEFILTERS ( fact_forecast[scope] ),\n"
      "    fact_forecast[scope] IN { \"North America\", \"EMEA\", \"APAC\", \"LATAM\" },\n"
      "    fact_forecast[layer] = \"all\"\n"
-     ")", "\\$#,0,,\"M\"", "Forecast",
+     ")", "\\$#,##0", "Forecast",
      "Adding the four regional P90s together."),
     ("Quantile Overstatement %",
      "DIVIDE ( [Sum of Regional P90] - [Requirement P90], [Requirement P90] )",
@@ -283,11 +312,11 @@ M = [
      "SELECTEDVALUE ( 'Realization Scenario'[Realization Scenario], 0.85 )",
      "0%", "Scenario", "The rate selected on the slider."),
     ("Material at Assumption",
-     "[Open Backlog Material] * [Realization Assumption]", "\\$#,0,,\"M\"",
+     "[Open Backlog Material] * [Realization Assumption]", "\\$#,##0",
      "Scenario",
      "Material implied by the chosen realization rate."),
     ("Exposure vs Full Commit",
-     "[Open Backlog Material] - [Material at Assumption]", "\\$#,0,,\"M\"",
+     "[Open Backlog Material] - [Material at Assumption]", "\\$#,##0",
      "Scenario",
      "Distance between committing against the whole book and committing against "
      "the assumption. This is the exposure the assumption controls."),
@@ -315,10 +344,10 @@ M = [
      "    FILTER ( fact_coverage, fact_coverage[actual] < fact_coverage[p10] ) )",
      "#,0", "Coverage", "Outcomes below the interval."),
     ("Median Error",
-     "MEDIAN ( fact_coverage[error] )", "\\$#,0,,\"M\"", "Coverage",
+     "MEDIAN ( fact_coverage[error] )", "\\$#,##0", "Coverage",
      "Median of actual minus P50. Near zero can hide a front end that runs low "
      "early and high late, because the halves cancel."),
-    ("Mean Error", "AVERAGE ( fact_coverage[error] )", "\\$#,0,,\"M\"", "Coverage",
+    ("Mean Error", "AVERAGE ( fact_coverage[error] )", "\\$#,##0", "Coverage",
      "Mean of actual minus P50."),
 ]
 
