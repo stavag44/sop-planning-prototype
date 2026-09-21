@@ -636,9 +636,9 @@ def main() -> None:
   {html['forward']}
   <p class="note">The mix changes across the horizon. Next month is {firm_first:.0f}% firm; twelve
   months out it is {firm_last:.0f}%. That is why the band widens from ${spread_first:.0f}M to
-  ${spread_last:.0f}M: the far months are mostly demand from orders nobody has placed yet. The
-  obvious inference is that the near months are therefore the safe ones to commit against.
-  Section 6 tests that against eight past cutoffs and finds the opposite.</p>
+  ${spread_last:.0f}M. The far months are mostly demand from orders nobody has placed yet, so
+  the near months look like the safe ones to commit against. Section 6 tests that against eight
+  past cutoffs and finds the opposite.</p>
 </section>
 
 <section id="s2">
@@ -646,10 +646,9 @@ def main() -> None:
   <p class="lede">Schedule slip from booked date to delivery, by market, across
   {len(orders):,} orders.</p>
   {html['slip']}
-  <p class="note">The market-level structure here was specified when the data was generated, so
-  this is a recovery test: the question is whether market-level aggregation recovers a structure
-  that a regional average destroys. India is carried separately because its distribution sits well
-  outside the others, at a P90 of {p90_market['India']:.1f} months against
+  <p class="note">The market-level structure was put into the data when it was generated, so this
+  is a recovery test: does grouping by market find it again. India is carried on its own because
+  its distribution sits well outside the others, P90 of {p90_market['India']:.1f} months against
   {p90_market['US / Canada']:.1f} for US and Canada.</p>
 </section>
 
@@ -661,8 +660,10 @@ def main() -> None:
   <p class="note">APAC blends to {p90_region['APAC']:.1f} months across Australia and South East
   Asia at {p90_market['Australia/SEA']:.1f} and India at {p90_market['India']:.1f}, with India at
   {india_share_apac:.0f}% of APAC bookings. EMEA blends to {p90_region['EMEA']:.1f} across Europe
-  at {p90_market['Europe']:.1f} and MENA at {p90_market['MENA']:.1f}. A plan set on either regional
-  figure runs early on one market and late on the other.</p>
+  at {p90_market['Europe']:.1f} and MENA at {p90_market['MENA']:.1f}. Plan APAC on
+  {p90_region['APAC']:.1f} and you have allowed
+  {p90_region['APAC'] - p90_market['Australia/SEA']:.1f} months too much for Australia and
+  {p90_market['India'] - p90_region['APAC']:.1f} months too little for India.</p>
 </section>
 
 <section id="sPANEL">
@@ -676,8 +677,8 @@ def main() -> None:
   month. The difference is material that would be bought and not needed. The size of that gap
   depends on an assumption worth stating: slip is drawn independently per order, with no shared
   shock. Real slip correlates through tariffs, interconnection queues and financing conditions, and
-  under positive correlation this benefit shrinks. A production model would estimate that
-  correlation rather than assume it away.</p>
+  under positive correlation this benefit shrinks. Estimating that correlation is production
+  work and this model does not do it.</p>
 </section>
 
 <section id="sSCEN">
@@ -686,8 +687,8 @@ def main() -> None:
   Move the slider.</p>
   {html['scenario']}
   <p class="note">The distance between the ends of the scale is the exposure the assumption
-  controls. Setting it at 100% commits steel against projects that slip; setting it low risks
-  dates on the projects that hold.</p>
+  controls. At 100% you commit steel against projects that will slip. Lower down you start
+  missing dates on the ones that hold.</p>
 </section>
 
 <section id="sCAL">
@@ -704,19 +705,18 @@ def main() -> None:
   {html['coverage']}
   <p class="note">Across {n_obs} month-forecasts the stated 80% interval contained the outcome
   {cov_all:.0f}% of the time, and the stated 50% interval {cov_50:.0f}%. {miss_high} misses fell
-  above the range and {miss_low} below. Both sit above nominal, which is the safe direction, but
-  those {n_obs} forecasts cover only {n_months} distinct months, and on {n_months} months neither
-  gap is distinguishable from chance. The interval is not demonstrably too wide. It is
-  demonstrably not too narrow, which is the claim worth making.</p>
+  above the range and {miss_low} below. Both sit above nominal, which is the safe direction.
+  But those {n_obs} forecasts cover only {n_months} distinct months, and on {n_months} months
+  neither gap clears chance. So the interval is not too narrow. Whether it is too wide, this
+  sample cannot say.</p>
   <p class="note">The one result here that does clear that bar is the shape. Month +{worst_h}
   covers {worst_h_cov:g}% against {best_h:g}% from three months out, the opposite of what most
   people expect, and the reason is not noise. Sorted by cutoff, the month +{worst_h} error runs
   {worst_signs}: the {half_n} earliest cutoffs forecast high by ${worst_first_abs:.1f}M on average
   and the {half_n} most recent forecast low by ${worst_last:.1f}M. That is a front end drifting in
   one direction, not scatter, and a run that clean turns up by chance about {p_runs_pct:.0f}% of
-  the time. A drifting near month is a tracking-signal problem with a known fix. A wide near month
-  would not be. They look identical in a coverage number, which is why the horizon breakdown is on
-  the page at all.</p>
+  the time. Drift has a standard fix, a tracking signal on the front month. The pooled coverage
+  number would never have shown it.</p>
   <p class="note"><strong>No correction is applied to these intervals, deliberately.</strong>
   Rescaling an interval to hit its stated coverage is standard, and the reason not to here is not
   that {n_obs} is too few. It is that {n_obs} overlapping forecasts are not {n_obs} independent
@@ -724,8 +724,7 @@ def main() -> None:
   why {n_obs} forecasts cover {n_months} months. Conformal calibration assumes those scores are
   exchangeable. Scores that share an outcome month are not, and without that assumption the
   guarantee fails at any sample size, so more cutoffs cut this way would not buy it back.
-  Non-overlapping windows would, at roughly two years of retained forecasts, which is the same
-  prerequisite as everything else on this page.</p>
+  Non-overlapping windows would, at roughly two years of retained forecasts.</p>
 </section>
 
 <section id="sEXC">
@@ -753,9 +752,8 @@ def main() -> None:
   overwritten each month rather than retained, so there is nothing to measure against. If that is
   right, keeping them costs very little and has to come before any modeling work.</p>
   <p>Without the record, the realization rate is a number someone picks and the interval has no
-  tested coverage. Each function downstream then applies its own unstated discount to the plan.
-  Measuring bias puts that correction in one place, where all four are working from the same
-  number.</p>
+  tested coverage. Each function downstream applies its own unstated discount. Measuring bias
+  puts that correction in one place.</p>
 </div>
 
 <footer>
